@@ -1,0 +1,512 @@
+{% extends 'base.html' %}
+
+{% block title %}Grafik ve Metrik İstasyonu - HZM BTS{% endblock %}
+
+{% block extra_css %}
+<style>
+/* HZM REFORM: Chart.js'in Grid'i Patlatmasını Engelleyen Zırhlı İkili Düzen */
+.top-matrix-grid { 
+    display: grid; 
+    grid-template-columns: repeat(2, minmax(0, 1fr)); /* minmax(0,1fr) grafiğin taşmasını kesin engeller */
+    gap: 25px; 
+    margin-bottom: 25px; 
+    width: 100%;
+}
+
+/* Tek Başına Tam Genişlik Kaplayacak Alt Bloklar İçin Yapı */
+.full-matrix-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 25px;
+    margin-bottom: 25px;
+}
+
+/* Kutu Tasarımları - Yükseklik Kontrol Altına Alındı */
+.matrix-box { 
+    background: var(--card-bg); 
+    border: 1px solid var(--accent); 
+    border-radius: 8px; 
+    padding: 20px; 
+    height: 380px; /* Çok büyük olmalarını engellemek için yükseklik sabitlendi */
+    display: flex; 
+    flex-direction: column; 
+    box-sizing: border-box;
+    min-width: 0; /* İçeriğin kutuyu esnetmesini kilitler */
+}
+
+/* Başlık ve Düzen Stilleri */
+.matrix-title { 
+    font-size: 0.9em; 
+    font-weight: 600; 
+    color: var(--highlight); 
+    margin-top: 0; 
+    margin-bottom: 15px; 
+    border-bottom: 1px dashed var(--accent); 
+    padding-bottom: 10px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    flex-wrap: wrap; 
+    gap: 10px;
+}
+
+/* HZM Minimalist Zaman Butonları */
+.timeline-btn-group { display: flex; gap: 4px; background: rgba(0,0,0,0.2); padding: 2px; border-radius: 4px; border: 1px solid var(--accent); }
+.time-btn { background: transparent; border: none; color: #6c6e75; padding: 4px 10px; font-size: 0.75em; font-weight: 600; cursor: pointer; border-radius: 3px; transition: all 0.2s; }
+.time-btn:hover { color: white; }
+.time-btn.active { background: var(--accent); color: var(--highlight); }
+
+/* Arama Kutusu Modülü */
+.search-container { position: relative; width: 180px; }
+.search-input { background: var(--bg-color); border: 1px solid var(--accent); color: white; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; outline: none; width: 100%; box-sizing: border-box; }
+.search-input:focus { border-color: var(--highlight); }
+
+.search-results { position: absolute; top: 100%; left: 0; right: 0; background: #141416; border: 1px solid var(--accent); border-top: none; border-radius: 0 0 4px 4px; max-height: 180px; overflow-y: auto; z-index: 1005; display: none; box-shadow: 0 6px 16px rgba(0,0,0,0.5); }
+.search-item { padding: 8px 12px; color: #ccc; cursor: pointer; font-size: 0.82em; border-bottom: 1px solid #1a1a1f; }
+.search-item:hover { background: #232329; color: var(--highlight); }
+
+.left-title-box { display: flex; align-items: center; gap: 15px; }
+
+/* HZM FINTABLES COCKPIT TERMINAL IFRAME */
+.fintables-station-container { flex: 1; width: 100%; min-height: 600px; background: #0c0c0d; border-radius: 4px; border: 1px solid var(--accent); overflow: hidden; margin-top: 5px; }
+.fintables-frame { width: 100%; height: 100%; min-height: 600px; border: none; }
+.full-matrix-grid .matrix-box { height: auto; min-height: 680px; } /* Alt Fintables kutusunu yüksek tutar */
+
+/* --- HZM REFORM: ARALARI FERAH İKİZ PANEL GEOMETRİSİ --- */
+.hzm-panel-wrapper { display: none; grid-template-columns: repeat(2, 1fr); gap: 25px; margin: 10px 0 35px 0; width: 100%; }
+.hzm-split-panel { background: var(--card-bg); border: 1px solid var(--accent); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.panel-sub-title { color: #ff9800; font-size: 0.85em; font-weight: bold; border-bottom: 1px dashed var(--accent); padding-bottom: 8px; margin-bottom: 15px; }
+
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88em; min-width: 100%; }
+th, td { padding: 12px 10px; text-align: right; border-bottom: 1px solid var(--accent); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-dim); font-weight: 500; background: rgba(0,0,0,0.1); }
+tr:hover { background: rgba(255,255,255,0.01); }
+
+/* --- RESPONSIVE KATMANI (TELEFONDA HER ŞEY ALT ALTA AKAR) --- */
+@media (max-width: 992px) {
+    .top-matrix-grid, .hzm-panel-wrapper { grid-template-columns: 1fr; gap: 20px; }
+    .matrix-box { height: 360px; } /* Mobilde yükseklik */
+    .matrix-title { flex-direction: column; align-items: stretch; gap: 12px; }
+    .left-title-box { flex-direction: column; align-items: stretch; gap: 8px; }
+    .search-container { width: 100%; }
+    .timeline-btn-group { justify-content: space-between; }
+    .hzm-panel-wrapper { margin: 15px 0 25px 0; }
+    .full-matrix-grid .matrix-box { min-height: 500px; }
+}
+</style>
+<link rel="icon" href="data:,">
+{% endblock %}
+
+{% block content %}
+<!-- 1. SEVİYE: HİSSE VE BANKA DAĞILIMLARI (YAN YANA EN ÜSTTE) -->
+<div class="top-matrix-grid">
+    <!-- HİSSE BAZLI DAĞILIM GRAFİĞİ -->
+    <div class="matrix-box">
+        <div class="matrix-title">
+            <span>📊 VARLIK BAZLI HİSSE DAĞILIMI (ANLIK HACİM)</span>
+            <small style="color: var(--text-dim); font-size: 0.8em; font-weight: normal;">* Portföy Ağırlık Kırılımı</small>
+        </div>
+        <div style="flex: 1; position: relative; width: 100%;">
+            <canvas id="hisseBarChart"></canvas>
+        </div>
+    </div>
+
+    <!-- BANKA BAZLI SERMAYE DAĞILIMI -->
+    <div class="matrix-box">
+        <div class="matrix-title">
+            <span>🏛️ KURUMSAL SERMAYE DAĞILIMI (BANKA ARŞİVİ)</span>
+            <small style="color: var(--text-dim); font-size: 0.8em; font-weight: normal;">* Sağ Tık / Uzun Bas: Süzgeç</small>
+        </div>
+        <div style="flex: 1; position: relative; width: 100%;">
+            <canvas id="bankaBarChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- GİZLİ SÜZGEC PANEL İSTASYONU GRUBU (BANKA TIKLANINCA AÇILIR) -->
+<div class="hzm-panel-wrapper" id="hzmSplitWrapper">
+    <!-- SOL PANEL: HİSSE SENETLERİ -->
+    <div class="hzm-split-panel">
+        <div class="matrix-title">
+            <span>🏛️ <strong id="hisseKurumAdi" style="color: #ff9800;">-</strong> | Aktif Hisse Senetleri</span>
+            <button class="time-btn" style="background:var(--accent); padding:2px 8px; font-size:0.75em;" onclick="panelleriKapat()">✕ Gizle</button>
+        </div>
+        <div class="panel-sub-title">PORTFÖY HİSSE POZİSYONLARI</div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">Varlık</th>
+                        <th>Adet</th>
+                        <th>Maliyet</th>
+                        <th>Güncel Değer</th>
+                    </tr>
+                </thead>
+                <tbody id="hisseTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SAĞ PANEL: HALKA ARZLAR -->
+    <div class="hzm-split-panel">
+        <div class="matrix-title">
+            <span>🚀 <strong id="halkaArzKurumAdi" style="color: var(--pos-color);">-</strong> | Halka Arz Pozisyonları</span>
+            <button class="time-btn" style="background:var(--accent); padding:2px 8px; font-size:0.75em;" onclick="panelleriKapat()">✕ Gizle</button>
+        </div>
+        <div class="panel-sub-title">AKTİF HALKA ARZ KATILIMLARI</div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">Varlık</th>
+                        <th>Adet</th>
+                        <th>Maliyet</th>
+                        <th>Güncel Değer</th>
+                    </tr>
+                </thead>
+                <tbody id="halkaArzTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 2. SEVİYE: KASA HACMİ (ORTADA TAM GENİŞLİK) -->
+<div class="full-matrix-grid">
+    <div class="matrix-box" style="height: 350px;">
+        <div class="matrix-title">
+            <span>⏳ HESAP KASA HACMİ NAKİT AKIŞI VE TRENDİ</span>
+            <div class="timeline-btn-group" id="nakitGroup">
+                <button class="time-btn" onclick="nakitGrafiginiGuncelle('1h', this)">Saatlik</button>
+                <button class="time-btn active" onclick="nakitGrafiginiGuncelle('1d', this)">Günlük</button>
+                <button class="time-btn" onclick="nakitGrafiginiGuncelle('1w', this)">Haftalık</button>
+                <button class="time-btn" onclick="nakitGrafiginiGuncelle('1m', this)">Aylık</button>
+                <button class="time-btn" onclick="nakitGrafiginiGuncelle('1y', this)">Yıllık</button>
+            </div>
+        </div>
+        <div style="flex: 1; position: relative; width: 100%;">
+            <canvas id="nakitAkisChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- 3. SEVİYE: BORSA VERİLERİ VE FINTABLES KOKPİTİ (EN ALTTA TAM GENİŞLİK) -->
+<div class="full-matrix-grid">
+    <div class="matrix-box">
+        <div class="matrix-title">
+            <div class="left-title-box">
+                <span>⚡ FINTABLES ALGORİTMİK ŞK. DETAY MERKEZİ (<strong id="aktifHisseLabel" style="color: var(--highlight);">THYAO</strong>)</span>
+                <div class="search-container">
+                    <input type="text" id="hisseAramaInput" class="search-input" placeholder="🔍 Varlık Ara... (Örn: A1YEN)" autocomplete="off" oninput="hisseAra()">
+                    <div id="aramaSonuclari" class="search-results"></div>
+                </div>
+            </div>
+        </div>
+        <div class="fintables-station-container" id="hzmFintablesContainer"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block block_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let nakitChartInstance = null;
+    let bankaChartInstance = null;
+    let hisseChartInstance = null;
+    let aktifHisseKodu = "THYAO"; 
+    let tumPiyasaHisseleri = [];
+    let rawMizanData = []; 
+    let pressTimer = null; 
+
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { color: '#1a1a1e' }, ticks: { color: '#6c6e75', font: { size: 10 } } },
+            y: { grid: { color: '#1a1a1e' }, ticks: { color: '#6c6e75', font: { size: 10 } } }
+        }
+    };
+
+    function formatTL(val) {
+        if (val === null || val === undefined || isNaN(val)) return "0,00";
+        return parseFloat(val).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fintablesTerminaliniYukle(sembol) {
+        if (!sembol) sembol = "THYAO";
+        let temizSembol = sembol.toString().replace(/[^a-zA-Z0-9]/g, "").toUpperCase().trim();
+        aktifHisseKodu = temizSembol;
+        
+        const labelEl = document.getElementById('aktifHisseLabel');
+        if (labelEl) labelEl.innerText = temizSembol;
+
+        const container = document.getElementById('hzmFintablesContainer');
+        if (container) {
+            container.innerHTML = `
+                <iframe 
+                    src="https://fintables.com/islem-ekrani?code=${temizSembol}" 
+                    class="fintables-frame" 
+                    loading="lazy">
+                </iframe>`;
+        }
+    }
+
+    function panelleriKapat() {
+        document.getElementById('hzmSplitWrapper').style.display = 'none';
+    }
+
+    function kurumDetaylariniSentezleVeBas(kurumAdi) {
+        document.getElementById('hisseKurumAdi').innerText = kurumAdi;
+        document.getElementById('halkaArzKurumAdi').innerText = kurumAdi;
+        
+        const hisseTbody = document.getElementById('hisseTableBody');
+        const halkaTbody = document.getElementById('halkaArzTableBody');
+        
+        hisseTbody.innerHTML = '';
+        halkaTbody.innerHTML = '';
+
+        const filtreliVarliklar = rawMizanData.filter(item => 
+            item.banka && item.banka.toUpperCase().trim() === kurumAdi.toUpperCase().trim()
+        );
+
+        let hisseAdet = 0;
+        let halkaAdet = 0;
+
+        filtreliVarliklar.forEach(varlik => {
+            const tr = document.createElement('tr');
+            tr.style.cursor = "pointer";
+            tr.onclick = () => fintablesTerminaliniYukle(varlik.hisse);
+            
+            tr.innerHTML = `
+                <td style="text-align: left; color:var(--highlight);"><strong>${varlik.hisse}</strong></td>
+                <td>${varlik.lot} Lot</td>
+                <td>₺ ${formatTL(varlik.maliyet)}</td>
+                <td style="color:var(--highlight)">₺ ${formatTL(varlik.deger)}</td>
+            `;
+
+            if (varlik.tur === 'HALKA_ARZ') {
+                halkaTbody.appendChild(tr);
+                halkaAdet++;
+            } else {
+                hisseTbody.appendChild(tr);
+                hisseAdet++;
+            }
+        });
+
+        if (hisseAdet === 0) {
+            hisseTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:15px;">Aktif hisse senedi pozisyonu yok.</td></tr>`;
+        }
+        if (halkaAdet === 0) {
+            halkaTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:15px;">Aktif halka arz katılımı yok.</td></tr>`;
+        }
+
+        const wrapper = document.getElementById('hzmSplitWrapper');
+        wrapper.style.display = 'grid';
+        wrapper.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function ilkYukleme() {
+        try {
+            const resDagilim = await fetch('/api/dagilim_verileri');
+            const dataDagilim = await resDagilim.json();
+
+            const resAnlikPortfolio = await fetch('/api/anlik_portfolio_detay');
+            const resultAnlik = await resAnlikPortfolio.json();
+            if (resultAnlik.status === "success") {
+                rawMizanData = resultAnlik.data;
+            }
+
+            // --- YENİ HZM REFORM: HİSSE BAZLI SÜTUN GRAFİĞİ MOTORU ---
+            const hisseCtx = document.getElementById('hisseBarChart');
+            if (hisseCtx && rawMizanData.length > 0) {
+                // Aynı hisse koduna ait varlık verilerini konsolide et (Agregasyon)
+                let hisseHacimleri = {};
+                rawMizanData.forEach(item => {
+                    let kod = item.hisse.toUpperCase().trim();
+                    hisseHacimleri[kod] = (hisseHacimleri[kod] || 0) + parseFloat(item.deger || 0);
+                });
+
+                let hisseLabels = Object.keys(hisseHacimleri);
+                let hisseData = Object.values(hisseHacimleri);
+
+                hisseChartInstance = new Chart(hisseCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: hisseLabels,
+                        datasets: [{
+                            label: 'Hisse Değeri (₺)',
+                            data: hisseData,
+                            backgroundColor: 'rgba(38, 166, 154, 0.65)',
+                            borderColor: '#26a69a',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...commonOptions,
+                        onClick: (e, elements) => {
+                            if (elements.length > 0) {
+                                const idx = elements[0].index;
+                                const kod = hisseChartInstance.data.labels[idx];
+                                fintablesTerminaliniYukle(kod);
+                            }
+                        }
+                    }
+                });
+            }
+
+            // --- BANKA BAZLI DAĞILIM GRAFİĞİ ---
+            const barCtx = document.getElementById('bankaBarChart');
+            if (barCtx) {
+                bankaChartInstance = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: dataDagilim.bankalar.labels,
+                        datasets: [{
+                            label: 'Varlık Hacmi (₺)',
+                            data: dataDagilim.bankalar.data,
+                            backgroundColor: 'rgba(255, 152, 0, 0.65)',
+                            borderColor: '#ff9800',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        ...commonOptions,
+                        onClick: (e, elements) => {
+                            e.preventDefault();
+                        }
+                    }
+                });
+
+                barCtx.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    const points = bankaChartInstance.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                    if (points.length > 0) {
+                        const index = points[0].index;
+                        const kurumAdi = bankaChartInstance.data.labels[index];
+                        kurumDetaylariniSentezleVeBas(kurumAdi);
+                    }
+                });
+
+                barCtx.addEventListener('touchstart', function(e) {
+                    const points = bankaChartInstance.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                    if (points.length > 0) {
+                        const index = points[0].index;
+                        const kurumAdi = bankaChartInstance.data.labels[index];
+                        
+                        pressTimer = setTimeout(() => {
+                            kurumDetaylariniSentezleVeBas(kurumAdi);
+                        }, 600);
+                    }
+                });
+
+                barCtx.addEventListener('touchend', function() {
+                    if (pressTimer) clearTimeout(pressTimer);
+                });
+
+                barCtx.addEventListener('touchmove', function() {
+                    if (pressTimer) clearTimeout(pressTimer);
+                });
+            }
+
+        } catch (err) { console.error("Dağılım veya anlık portföy yükleme hatası:", err); }
+
+        try {
+            const resPiyasa = await fetch('/api/piyasa_hisse_listesi');
+            const piyasaData = await resPiyasa.json();
+            if (piyasaData.status === "success" && piyasaData.data.length > 0) {
+                tumPiyasaHisseleri = piyasaData.data;
+            }
+        } catch (e) { console.error(e); }
+
+        fintablesTerminaliniYukle(aktifHisseKodu);
+        nakitGrafiginiGuncelle('1d', null);
+    }
+
+    async function nakitGrafiginiGuncelle(periyot, btnElement) {
+        if (btnElement) {
+            document.querySelectorAll('#nakitGroup .time-btn').forEach(b => b.classList.remove('active'));
+            btnElement.classList.add('active');
+        }
+
+        try {
+            const resNakit = await fetch(`/api/nakit_akis_verisi?periyot=${periyot}`);
+            const dataNakit = await resNakit.json();
+
+            if (nakitChartInstance !== null) nakitChartInstance.destroy();
+
+            const canvasEl = document.getElementById('nakitAkisChart');
+            if (!canvasEl) return;
+            
+            const ctx = canvasEl.getContext('2d');
+            const labels = dataNakit.trend_labels || [];
+            const trendData = dataNakit.nakit_trend || [];
+
+            nakitChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Kasa Nakit Trendi',
+                        data: trendData,
+                        borderColor: '#26a69a',
+                        backgroundColor: 'rgba(38, 166, 154, 0.03)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#26a69a',
+                        pointRadius: periyot === '1h' ? 0 : 3,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: commonOptions
+            });
+        } catch (err) { console.error("Nakit trend hatası:", err); }
+    }
+
+    function hisseAra() {
+        const input = document.getElementById('hisseAramaInput');
+        if (!input) return;
+        const filtre = input.value.toUpperCase().trim().replace(/[^a-zA-Z0-9]/g, "");
+        const sonucKutusu = document.getElementById('aramaSonuclari');
+        if (!sonucKutusu) return;
+        sonucKutusu.innerHTML = '';
+        
+        if (!filtre) { sonucKutusu.style.display = 'none'; return; }
+
+        const eslesenler = tumPiyasaHisseleri.filter(hisse => hisse.includes(filtre));
+
+        if (eslesenler.length > 0) {
+            sonucKutusu.style.display = 'block';
+            eslesenler.slice(0, 8).forEach(kod => {
+                const div = document.createElement('div');
+                div.className = 'search-item';
+                div.innerText = kod;
+                div.onclick = function() {
+                    input.value = kod;
+                    sonucKutusu.style.display = 'none';
+                    fintablesTerminaliniYukle(kod);
+                };
+                sonucKutusu.appendChild(div);
+            });
+        } else {
+            sonucKutusu.style.display = 'none';
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        if (e.target.id !== 'hisseAramaInput') {
+            const el = document.getElementById('aramaSonuclari');
+            if (el) el.style.display = 'none';
+        }
+    });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ilkYukleme);
+    } else {
+        ilkYukleme();
+    }
+</script>
+{% endblock %}

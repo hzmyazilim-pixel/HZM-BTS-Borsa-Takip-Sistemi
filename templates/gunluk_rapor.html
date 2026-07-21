@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+
+{% block title %}Günlük Kıyas Raporu - HZM Portföy{% endblock %}
+
+{% block extra_css %}
+<style>
+/* HZM ULTRA-WIDE REFORM: Ekran ortasında sıkışmayı önler, tüm alanı kaplar */
+.report-card { 
+    background: var(--card-bg); 
+    border: 1px solid var(--accent); 
+    padding: 20px; 
+    border-radius: 8px; 
+    position: relative; 
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+.btn-simulation { background: transparent; color: #ff9800; border: 1px solid #ff9800; padding: 8px 14px; font-weight: bold; border-radius: 4px; cursor: pointer; float: right; transition: 0.3s; font-size: 0.8em; }
+.btn-simulation:hover { background: #ff9800; color: black; }
+
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9em; min-width: 950px; }
+th, td { padding: 12px 10px; text-align: right; border-bottom: 1px solid var(--accent); vertical-align: middle; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-dim); font-weight: 500; background: rgba(0,0,0,0.1); }
+
+.clickable-row { cursor: pointer; transition: 0.2s; user-select: none; -webkit-user-select: none; }
+.clickable-row:hover, .clickable-row.context-active { background: rgba(255,255,255,0.03) !important; }
+
+.pos { color: var(--pos-color); font-weight: bold; }
+.neg { color: var(--neg-color); font-weight: bold; }
+
+.btn-detay-row { background: var(--accent); color: var(--highlight); border: 1px solid #444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+
+.detail-inline-row { display: none; background: rgba(0,0,0,0.25); }
+.detail-container { padding: 15px; text-align: left; border-left: 3px solid #ff9800; }
+
+.section-divider { border-bottom: 1px dashed var(--accent); margin: 20px 0 10px 0; padding-bottom: 5px; color: var(--highlight); font-size: 0.95em; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+
+.compare-engine-box { background: rgba(20, 20, 22, 0.95); border: 1px solid #ff9800; border-radius: 6px; padding: 20px; margin-bottom: 25px; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.6); width: 100%; box-sizing: border-box; }
+.compare-grid { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; }
+.compare-column { flex: 1; min-width: 280px; background: var(--bg-color); border: 1px solid var(--accent); padding: 15px; border-radius: 4px; }
+.compare-col-title { font-weight: bold; color: var(--highlight); border-bottom: 1px solid var(--accent); padding-bottom: 5px; margin-bottom: 10px; text-align: center; }
+
+.compare-analysis-output { margin-top: 15px; background: rgba(255, 152, 0, 0.04); border: 1px dashed rgba(255, 152, 0, 0.3); border-radius: 4px; padding: 15px; font-size: 0.88em; line-height: 1.5; }
+
+.hzm-context-menu {
+    position: fixed;
+    display: none;
+    z-index: 10000;
+    background: #16161a;
+    border: 1px solid #333;
+    border-radius: 5px;
+    width: 190px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+    padding: 4px 0;
+}
+.hzm-context-item {
+    padding: 12px 15px;
+    font-size: 0.82em;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s, color 0.2s;
+}
+.hzm-context-item:hover { background: #ff9800; color: #000; }
+.hzm-context-divider { height: 1px; background: #252528; margin: 4px 0; }
+
+@media (max-width: 768px) {
+    table { font-size: 0.78em; min-width: auto; }
+    th, td { padding: 8px 4px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-card">
+    <div style="overflow: hidden; margin-bottom: 15px; border-bottom: 1px solid var(--accent); padding-bottom: 10px;">
+        <h2 style="margin:0; font-weight: 500; color: var(--highlight); float: left;">📅 Günlük Portföy Kıyaslama Arşivi</h2>
+        <button class="btn-simulation" onclick="manuelRaporTetikle()">⚡ ANLIK SİMÜLASYON KAYDI</button>
+    </div>
+
+    <div id="compareEngine" class="compare-engine-box">
+        <div style="overflow:hidden; margin-bottom:12px;">
+            <h3 style="margin:0; color:#ff9800; font-weight:500; font-size:1.1em; float:left;">📊 Gelişmiş Çoklu Gün Kıyaslama Motoru</h3>
+            <button class="btn-detay-row" style="float:right; background:#ef5350; color:white; border:none;" onclick="temizleKiyaslama()">Seçimleri Temizle</button>
+        </div>
+        <div id="compareGridContainer" class="compare-grid"></div>
+        <div id="compareAnalysisResult" class="compare-analysis-output"></div>
+    </div>
+    
+    <p style="font-size: 0.82em; color: var(--text-dim); margin-bottom: 20px;">
+        * Bilgisayarda <b>Sağ Tıklayarak</b>, telefonda satıra <b>Basılı Tutarak (Uzun Basış)</b> kontrol panelini açabilir; detayları inceleyip günleri çapraz kıyaslamaya alabilirsiniz.
+    </p>
+
+    <div id="loadingText" style="color: var(--text-dim); text-align: center; padding: 40px;">Kayıtlı günlük arşiv verileri yükleniyor...</div>
+    
+    <div class="table-responsive" id="reportTableWrapper" style="display: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align: center; width: 40px;">Seç</th>
+                    <th style="text-align: left;">Rapor Tarihi</th>
+                    <th style="color: #ff9800;">Toplam Alış Maliyeti (₺)</th>
+                    <th>Portföy Piyasa Değeri (₺)</th>
+                    <th>Hesaptaki Nakit (₺)</th>
+                    <th style="color: var(--highlight);">Toplam Finansal Güç (₺)</th>
+                    <th>Açık K/Z (₺)</th>
+                    <th>Günlük Değişim Kıstası</th>
+                    <th style="text-align: center; width: 80px;">Aksiyon</th>
+                </tr>
+            </thead>
+            <tbody id="reportTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="customContextMenu" class="hzm-context-menu">
+    <div class="hzm-context-item" onclick="contextAction('DETAY')">🔍 Detayları Aşağı Aç</div>
+    <div class="hzm-context-item" onclick="contextAction('KIYAS')">🔄 Kıyaslama Listesine Al</div>
+    <div class="hzm-context-divider"></div>
+    <div class="hzm-context-item" style="color:var(--neg-color);" onclick="contextAction('KAPAT')">✕ Menüyü Kapat</div>
+</div>
+{% endblock %}
+
+{% block block_js %}
+<script>
+    let tumRaporData = [];
+    let seciliKiyaslar = [];
+    let contextActiveTarih = null;
+
+    function formatTL(val) {
+        if (val === null || val === undefined || isNaN(val)) return "0,00";
+        return parseFloat(val).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Tarih string ifadelerini (GG.AA.YYYY veya YYYY-AA-GG) karşılaştırılabilir Date objelerine çevirir
+    function parseHzmTarih(tarihStr) {
+        if(!tarihStr) return new Date(0);
+        if(tarihStr.includes('.')) {
+            const parts = tarihStr.split('.');
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+        return new Date(tarihStr);
+    }
+
+    function temizleKiyaslama() {
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        seciliKiyaslar = [];
+        document.getElementById('compareEngine').style.display = 'none';
+    }
+
+    async function raporlariYukle() {
+        try {
+            const res = await fetch('/api/gunluk_raporlar_data');
+            const result = await res.json();
+            if (result.status === "success" && result.data && result.data.length > 0) {
+                tumRaporData = result.data;
+                document.getElementById('loadingText').style.display = 'none';
+                document.getElementById('reportTableWrapper').style.display = 'block';
+                tabloyuCiz(tumRaporData);
+            } else {
+                document.getElementById('loadingText').innerText = "Henüz arşiv kaydı bulunmuyor.";
+            }
+        } catch (err) { 
+            console.error(err);
+            document.getElementById('loadingText').innerText = "Veri yüklenirken bir hata oluştu.";
+        }
+    }
+
+    function tabloyuCiz(data) {
+        const tbody = document.getElementById('reportTableBody');
+        tbody.innerHTML = '';
+
+        for (let i = 0; i < data.length; i++) {
+            const bugun = data[i];
+            const tr = document.createElement('tr');
+            tr.className = 'clickable-row';
+            tr.id = `row-summary-${bugun.tarih.replace(/\./g, '-')}`;
+            
+            let pressTimer = null;
+            
+            tr.addEventListener('touchstart', function (e) {
+                if(e.target.type === 'checkbox' || e.target.tagName === 'BUTTON') return;
+                pressTimer = setTimeout(function() {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    openHzmContextMenu({ clientX: touch.clientX, clientY: touch.clientY }, bugun.tarih);
+                }, 600);
+            }, { passive: false });
+
+            tr.addEventListener('touchend', function (e) { if (pressTimer !== null) clearTimeout(pressTimer); });
+            tr.addEventListener('touchmove', function (e) { if (pressTimer !== null) clearTimeout(pressTimer); });
+
+            tr.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                openHzmContextMenu(e, bugun.tarih);
+            });
+
+            let kiyasMetni = "-"; let kiyasCls = "";
+            if (i + 1 < data.length) {
+                const dun = data[i + 1];
+                const fark = (bugun.toplam_guc || 0) - (dun.toplam_guc || 0);
+                const yuzde = dun.toplam_guc > 0 ? (fark / dun.toplam_guc) * 100 : 0;
+                if (fark > 0) { kiyasMetni = `▲ +₺${formatTL(fark)} (+${yuzde.toFixed(2)}%)`; kiyasCls = "pos"; }
+                else if (fark < 0) { kiyasMetni = `▼ -₺${formatTL(Math.abs(fark))} (${yuzde.toFixed(2)}%)`; kiyasCls = "neg"; }
+                else { kiyasMetni = "0,00 (Değişmedi)"; }
+            }
+
+            // Eski şema koruması (maliyet veya kar_zarar null ise düşmesin)
+            const safMaliyet = bugun.maliyet || bugun.alis || 0;
+            const safDeger = bugun.deger || 0;
+            const safNakit = bugun.nakit || bugun.hesap_para || 0;
+            const safGuc = bugun.toplam_guc || (safDeger + safNakit);
+            const safKZ = bugun.kar_zarar !== undefined ? bugun.kar_zarar : (safDeger - safMaliyet);
+
+            tr.innerHTML = `
+                <td style="text-align: center;"><input type="checkbox" id="cb-${bugun.tarih.replace(/\./g, '-')}" value="${bugun.tarih}" onchange="kiyaslamaSecimDegisti(this)"></td>
+                <td style="text-align: left;"><b>${bugun.tarih}</b></td>
+                <td style="color: #ff9800;">₺${formatTL(safMaliyet)}</td>
+                <td>₺${formatTL(safDeger)}</td>
+                <td style="color: #26a69a;">₺${formatTL(safNakit)}</td>
+                <td style="color: var(--highlight); font-weight:bold;">₺${formatTL(safGuc)}</td>
+                <td class="${safKZ >= 0 ? 'pos' : 'neg'}">₺${formatTL(safKZ)}</td>
+                <td class="${kiyasCls}">${kiyasMetni}</td>
+                <td style="text-align: center;">
+                    <button class="btn-detay-row" onclick="toggleInlineDetail('${bugun.tarih}')">Detay</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            const trDetail = document.createElement('tr');
+            trDetail.className = 'detail-inline-row';
+            trDetail.id = `row-detail-${bugun.tarih.replace(/\./g, '-')}`;
+            trDetail.innerHTML = `
+                <td colspan="9">
+                    <div class="detail-container">
+                        <div id="inline-content-${bugun.tarih.replace(/\./g, '-')}" style="color:var(--text-dim); font-size:0.9em;">
+                            🔄 Detay verileri yükleniyor...
+                        </div>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(trDetail);
+        }
+    }
+
+    function openHzmContextMenu(e, tarih) {
+        contextActiveTarih = tarih;
+        const menu = document.getElementById('customContextMenu');
+        
+        document.querySelectorAll('.clickable-row').forEach(row => row.classList.remove('context-active'));
+        const targetRow = document.getElementById(`row-summary-${tarih.replace(/\./g, '-')}`);
+        if(targetRow) targetRow.classList.add('context-active');
+
+        menu.style.display = 'block';
+        
+        let posX = e.clientX || e.pageX;
+        let posY = e.clientY || e.pageY;
+        if (posX + 190 > window.innerWidth) posX = window.innerWidth - 200;
+        
+        menu.style.left = `${posX}px`;
+        menu.style.top = `${posY}px`;
+    }
+
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('customContextMenu');
+        if (!menu.contains(e.target)) closeContextEngine();
+    });
+
+    function closeContextEngine() {
+        document.getElementById('customContextMenu').style.display = 'none';
+        document.querySelectorAll('.clickable-row').forEach(row => row.classList.remove('context-active'));
+    }
+
+    function contextAction(actionType) {
+        if (!contextActiveTarih) return;
+        
+        if (actionType === 'DETAY') {
+            toggleInlineDetail(contextActiveTarih);
+        } else if (actionType === 'KIYAS') {
+            const cb = document.getElementById(`cb-${contextActiveTarih.replace(/\./g, '-')}`);
+            if (cb && !cb.checked) {
+                cb.checked = true;
+                kiyaslamaSecimDegisti(cb);
+            }
+        }
+        closeContextEngine();
+    }
+
+    async function toggleInlineDetail(tarih) {
+        const idFormat = tarih.replace(/\./g, '-');
+        const detailRow = document.getElementById(`row-detail-${idFormat}`);
+        const contentBox = document.getElementById(`inline-content-${idFormat}`);
+
+        if (detailRow.style.display === 'table-row') {
+            detailRow.style.display = 'none';
+            return;
+        }
+
+        detailRow.style.display = 'table-row';
+
+        try {
+            const res = await fetch(`/api/gunluk_rapor_detay/${tarih}`);
+            const result = await res.json();
+            
+            if (result.status === "success" && result.data && result.data.length > 0) {
+                let hisselerHtml = ""; let halkalarHtml = ""; let satislarHtml = "";
+
+                result.data.forEach(item => {
+                    const changeVal = parseFloat(item.kz_yuzde) || 0.0;
+                    const bfm = item.alim_fiyati || item.maliyet || 0; // Şema koruması
+                    const rowHtml = `
+                        <tr>
+                            <td style="text-align:left;"><b>${item.hisse}</b><br><small style="color:var(--text-dim)">${item.banka || '-'}</small></td>
+                            <td>₺ ${formatTL(item.fiyat)}</td>
+                            <td>₺ ${formatTL(bfm)}</td>
+                            <td>${item.lot}</td>
+                            <td style="color:var(--highlight)">₺ ${formatTL(item.deger || (item.lot * item.fiyat))}</td>
+                            <td class="${changeVal >= 0 ? 'pos' : 'neg'}">${changeVal.toFixed(2)}%</td>
+                        </tr>
+                    `;
+                    if (item.tur === 'HALKA_ARZ') halkalarHtml += rowHtml;
+                    else if (item.tur === 'SATIS') satislarHtml += rowHtml;
+                    else hisselerHtml += rowHtml;
+                });
+
+                contentBox.innerHTML = `
+                    <div class="section-divider">📊 HİSSE SENETLERİ BÖLÜMÜ</div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead><tr><th style="text-align:left;">Hisse</th><th>Borsa Fiyatı</th><th>Birim Maliyet</th><th>Adet</th><th>Anlık Değer</th><th>K/Z%</th></tr></thead>
+                            <tbody>${hisselerHtml || '<tr><td colspan="6" style="color:var(--text-dim); text-align:center;">O gün açık hisse senedi pozisyonu bulunmuyor.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+
+                    <div class="section-divider">🚀 HALKA ARZLAR BÖLÜMÜ</div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead><tr><th style="text-align:left;">Hisse</th><th>Borsa Fiyatı</th><th>Birim Maliyet</th><th>Adet</th><th>Anlık Değer</th><th>K/Z%</th></tr></thead>
+                            <tbody>${halkalarHtml || '<tr><td colspan="6" style="color:var(--text-dim); text-align:center;">O gün açık halka arz pozisyonu bulunmuyor.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                contentBox.innerHTML = `<div style="color:var(--text-dim); padding:10px; text-align:center;">⚠️ Rapor detay paketi boş veya güncel veritabanı şemasıyla uyumsuz.</div>`;
+            }
+        } catch (err) { 
+            contentBox.innerHTML = "❌ Veri yükleme yapısı sırasında bir iç veri tabanı hatası oluştu."; 
+        }
+    }
+
+    async function kiyaslamaSecimDegisti(checkbox) {
+        const tarih = checkbox.value;
+        if (checkbox.checked) {
+            if (!seciliKiyaslar.includes(tarih)) seciliKiyaslar.push(tarih);
+        } else {
+            seciliKiyaslar = seciliKiyaslar.filter(t => t !== tarih);
+        }
+
+        const engineBox = document.getElementById('compareEngine');
+        const gridContainer = document.getElementById('compareGridContainer');
+        const analysisContainer = document.getElementById('compareAnalysisResult');
+
+        if (seciliKiyaslar.length === 0) {
+            engineBox.style.display = 'none';
+            return;
+        }
+
+        engineBox.style.display = 'block';
+        gridContainer.innerHTML = '<div style="color:var(--text-dim); padding:10px;">Hesaplanıyor, derin kronolojik mat analizler yapılıyor...</div>';
+        analysisContainer.style.display = 'none';
+
+        let columnsHtml = "";
+        let kiyaslamaNesneleri = [];
+
+        for(let t of seciliKiyaslar) {
+            const rData = tumRaporData.find(x => x.tarih === t);
+            if(!rData) continue;
+
+            let hisseCount = 0;
+            try {
+                const res = await fetch(`/api/gunluk_rapor_detay/${t}`);
+                const result = await res.json();
+                hisseCount = result.status === "success" && result.data ? result.data.length : 0;
+            } catch(e) { console.error(e); }
+            
+            kiyaslamaNesneleri.push({ rData, hisseCount });
+        }
+
+        // --- HZM REFORM: SEÇİM SIRASI ÖNEMSİZLEŞTİRİLİYOR, KRONOLOJİK SIRALAMA YAPILIYOR ---
+        // Tarihsel olarak yeni olan gün (en büyük tarih) dizinin BAŞINA (0), eski olan SONUNA (1) geçer.
+        kiyaslamaNesneleri.sort((a, b) => parseHzmTarih(b.rData.tarih) - parseHzmTarih(a.rData.tarih));
+
+        kiyaslamaNesneleri.forEach(item => {
+            const rData = item.rData;
+            const hisseCount = item.hisseCount;
+            const safMaliyet = rData.maliyet || rData.alis || 0;
+            const safKZ = rData.kar_zarar !== undefined ? rData.kar_zarar : (rData.deger - safMaliyet);
+
+            columnsHtml += `
+                <div class="compare-column">
+                    <div class="compare-col-title">📅 ${rData.tarih}</div>
+                    <div style="font-size:0.85em; display:flex; flex-direction:column; gap:6px;">
+                        <div style="display:flex; justify-content:space-between;"><span>Maliyet:</span><span style="color:#ff9800">₺ ${formatTL(safMaliyet)}</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Varlık Değeri:</span><span style="color:var(--highlight)">₺ ${formatTL(rData.deger)}</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Nakit Havuz:</span><span style="color:#26a69a">₺ ${formatTL(rData.nakit || rData.hesap_para)}</span></div>
+                        <div style="display:flex; justify-content:space-between; border-top:1px dashed #444; padding-top:4px;"><b>Finansal Güç:</b><b style="color:var(--highlight)">₺ ${formatTL(rData.toplam_guc || (rData.deger + (rData.nakit || 0)))}</b></div>
+                        <div style="display:flex; justify-content:space-between;"><span>Açık Pozisyon K/Z:</span><span class="${safKZ >= 0 ? 'pos':'neg'}">₺ ${formatTL(safKZ)}</span></div>
+                        <div style="display:flex; justify-content:space-between; background:rgba(255,255,255,0.03); padding:4px; border-radius:2px; margin-top:5px;"><span>Aktif Pozisyon:</span><span><b>${hisseCount} Varlık</b></span></div>
+                    </div>
+                </div>
+            `;
+        });
+        gridContainer.innerHTML = columnsHtml;
+
+        if (kiyaslamaNesneleri.length === 2) {
+            analysisContainer.style.display = 'block';
+            // Sıraladığımız için yeniG kesinlikle indeks 0'dır, eskiG indeks 1'dir.
+            const yeniG = kiyaslamaNesneleri[0].rData;
+            const eskiG = kiyaslamaNesneleri[1].rData;
+            
+            const yeniGuc = yeniG.toplam_guc || (yeniG.deger + (yeniG.nakit || 0));
+            const eskiGuc = eskiG.toplam_guc || (eskiG.deger + (eskiG.nakit || 0));
+            const yeniNakit = yeniG.nakit || yeniG.hesap_para || 0;
+            const eskiNakit = eskiG.nakit || eskiG.hesap_para || 0;
+
+            const gucFarki = yeniGuc - eskiGuc;
+            const gucYuzde = eskiGuc > 0 ? (gucFarki / eskiGuc) * 100 : 0;
+            const nakitFarki = yeniNakit - eskiNakit;
+            const varlikFarki = (yeniG.deger || 0) - (eskiG.deger || 0);
+
+            let basariSkoru = 50 + Math.round(gucYuzde * 5);
+            if (basariSkoru > 100) basariSkoru = 100;
+            if (basariSkoru < 0) basariSkoru = 0;
+
+            let durumMetni = "";
+            if (gucFarki > 0) {
+                durumMetni = `📈 Portföy Finansal Gücü, <b>${eskiG.tarih}</b> tarihine kıyasla net <b class="pos">+₺ ${formatTL(gucFarki)} (+${gucYuzde.toFixed(2)}%)</b> artış göstermiştir. `;
+            } else if (gucFarki < 0) {
+                durumMetni = `📉 Portföy Finansal Gücü, <b>${eskiG.tarih}</b> tarihine kıyasla net <b class="neg">-₺ ${formatTL(Math.abs(gucFarki))} (${gucYuzde.toFixed(2)}%)</b> değer kaybetmiştir. `;
+            } else {
+                durumMetni = `⚖️ İki dönem arasında finansal dengede herhangi bir değişim saptanmamıştır. `;
+            }
+
+            if (nakitFarki < 0 && varlikFarki > 0) {
+                durumMetni += `Nakit havuzundan <b style="color:#ef5350">₺ ${formatTL(Math.abs(nakitFarki))}</b> nakit çıkışı yapılarak aktif hisse senedi pozisyonlarına aktarılmış ve varlık değeri büyütülmüştür (Agresif Genişleme Hamlesi).`;
+            } else if (nakitFarki > 0 && varlikFarki < 0) {
+                durumMetni += `Hisse senedi veya halka arz varlıklarından <b style="color:#26a69a">₺ ${formatTL(Math.abs(varlikFarki))}</b> nakde geçiş (Kar Realizasyonu veya Defansif Pozisyon Koruma) yapılmıştır.`;
+            } else if (gucFarki > 0) {
+                durumMetni += `Hem nakit dengesi hem de piyasa varlık değerleri pozitif ivme ile büyümektedir.`;
+            }
+
+            analysisContainer.innerHTML = `
+                <div style="font-weight:700; color:#ff9800; font-size:1.05em; margin-bottom:8px; display:flex; justify-content:space-between;">
+                    <span>🤖 HZM RADAR OTOMATİK SENTEZ RAPORU</span>
+                    <span>Sistem Başarı Skoru: %${basariSkoru}</span>
+                </div>
+                <div style="color:var(--text-main); font-size:0.95em;">${durumMetni}</div>
+            `;
+        }
+    }
+
+    async function manuelRaporTetikle() {
+        try {
+            const res = await fetch('/api/test_rapor_tetikle');
+            const data = await res.json();
+            if (res.ok && data.status === "success") { 
+                alert("Bugünün tam detaylı mizan kaydı başarıyla mühürlendi!"); 
+                raporlariYukle(); 
+            } else {
+                alert("Mizan mühürleme başarısız: " + (data.message || "İç Hata"));
+            }
+        } catch(e) { alert("Sunucu bağlantı hatası."); }
+    }
+
+    window.onload = function() {
+        raporlariYukle();
+    };
+</script>
+{% endblock %}

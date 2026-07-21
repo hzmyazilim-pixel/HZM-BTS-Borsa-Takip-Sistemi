@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block title %}Piyasa & Fintables Radar - HZM Sinyal{% endblock %}
+
+{% block extra_css %}
+<style>
+.header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
+.search-box { flex-grow: 1; padding: 12px; background: var(--card-bg); border: 1px solid var(--accent); color: white; border-radius: 4px; font-size: 1em; box-sizing: border-box; }
+.search-box:focus { outline: none; border-color: var(--text-dim); }
+
+.action-btn-group { display: flex; gap: 10px; }
+.btn-upload { background: #26a69a; color: white; border: none; padding: 12px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; font-size: 0.9em; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.btn-sync { background: #ff9800; color: #141416; border: none; padding: 12px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; font-size: 0.9em; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.btn-sync:hover { background: #e08600; }
+.btn-sync:disabled { background: #333; color: #6c6e75; cursor: not-allowed; }
+
+.radar-section { background: var(--card-bg); border: 1px solid var(--accent); padding: 15px; border-radius: 8px; margin-top: 20px; }
+.radar-title { font-size: 1.15em; color: #ff9800; font-weight: 500; border-bottom: 1px solid var(--accent); padding-bottom: 10px; margin-top: 0; margin-bottom: 15px; }
+
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88em; min-width: 700px; }
+th, td { padding: 12px 8px; text-align: right; border-bottom: 1px solid var(--accent); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-dim); font-weight: 500; background: rgba(0,0,0,0.1); }
+tr:hover { background: rgba(255,255,255,0.02); }
+
+.pos { color: var(--pos-color); }
+.neg { color: var(--neg-color); }
+
+.radar-al { color: var(--pos-color); font-weight: bold; }
+.radar-sat { color: var(--neg-color); font-weight: bold; }
+.radar-notr { color: #ff9800; font-weight: bold; }
+
+.badge-skor { background: #333; color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.9em; border: 1px solid var(--accent); }
+.high-score { border-color: var(--pos-color); color: var(--pos-color); }
+
+@media (max-width: 768px) {
+    .header-area { flex-direction: column; align-items: stretch; gap: 12px; }
+    .action-btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btn-upload, .btn-sync { width: 100%; justify-content: center; padding: 12px 8px; font-size: 0.85em; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="header-area">
+    <input type="text" id="searchStock" class="search-box" placeholder="Hisse Kodu veya Radar Sinyaline Göre Canlı Ara... (Örn: THYAO, Al)">
+    
+    <div class="action-btn-group">
+        <button id="syncBtn" class="btn-sync" onclick="canliPiyasayiTazele()">🔄 VERİ ÇEK</button>
+        <input type="file" id="excelFileInput" accept=".xlsx, .csv" style="display: none;" onchange="dosyaSecildiVeGonder(this)">
+        <button class="btn-upload" onclick="document.getElementById('excelFileInput').click()">📥 EXCEL/CSV AKTAR</button>
+    </div>
+</div>
+
+<div class="radar-section">
+    <div class="radar-title">📊 Fintables Algoritmik Hisse Taraması (Radar)</div>
+    <div id="loadingText" style="color: var(--text-dim); text-align: center; padding: 40px; font-size:0.9em;">Yüklü piyasa verisi aranıyor veya rasyolar hesaplanıyor...</div>
+    
+    <div class="table-responsive" id="radarTableWrapper" style="display: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Hisse Kodu</th>
+                    <th>Anlık Fiyat</th>
+                    <th>Günlük Değişim</th>
+                    <th>F/K Oranı</th>
+                    <th>PD/DD Oranı</th>
+                    <th>Temettü Verimi</th>
+                    <th>Fintables Radar Sinyali</th>
+                    <th style="text-align: center; width: 80px;">Sistem Skoru</th>
+                </tr>
+            </thead>
+            <tbody id="radarTableBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block block_js %}
+<script>
+    let tumRadarData = [];
+
+    async function fintablesRadariniYukle() {
+        try {
+            const res = await fetch('/api/fintables_radar');
+            const result = await res.json();
+            if (result.status === "success" && result.data && result.data.length > 0) {
+                tumRadarData = result.data;
+                document.getElementById('loadingText').style.display = 'none';
+                document.getElementById('radarTableWrapper').style.display = 'block';
+                tabloyuCiz(tumRadarData);
+            } else {
+                document.getElementById('loadingText').innerText = "Yüklü piyasa verisi bulunamadı veya havuz boş.";
+            }
+        } catch (err) {
+            console.error("Hata:", err);
+            document.getElementById('loadingText').innerText = "Radar yüklenirken bir bağlantı hatası oluştu.";
+        }
+    }
+
+    async function canliPiyasayiTazele() {
+        const syncBtn = document.getElementById('syncBtn');
+        const loadingText = document.getElementById('loadingText');
+        
+        if (syncBtn) {
+            syncBtn.disabled = true;
+            syncBtn.innerText = "⚡ TARANIYOR...";
+        }
+        
+        loadingText.innerText = "HZM BTS Terminali canlı borsa hattına bağlanıyor, rasyolar hesaplanıyor...";
+        loadingText.style.display = 'block';
+        document.getElementById('radarTableWrapper').style.display = 'none';
+
+        try {
+            const res = await fetch('/api/canli_piyasa_yenile', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === "success") {
+                await fintablesRadariniYukle();
+            } else {
+                alert("Canlı bağlantı hatası: " + data.message);
+                fintablesRadariniYukle();
+            }
+        } catch (err) {
+            alert("Sistem akış hatası.");
+            fintablesRadariniYukle();
+        } finally {
+            if (syncBtn) {
+                syncBtn.disabled = false;
+                syncBtn.innerText = "🔄 VERİ ÇEK";
+            }
+        }
+    }
+
+    function tabloyuCiz(veriler) {
+        const tbody = document.getElementById('radarTableBody');
+        tbody.innerHTML = '';
+
+        veriler.forEach(item => {
+            const tr = document.createElement('tr');
+            const gunlukVal = parseFloat(item.gunluk) || 0.0;
+            const changeCls = gunlukVal >= 0 ? 'pos' : 'neg';
+            const sign = gunlukVal >= 0 ? '+' : '';
+            
+            let sinyalCls = "radar-notr";
+            const sinyalMetni = item.sinyal ? String(item.sinyal) : 'Nötr';
+            if (sinyalMetni.includes("Al") || sinyalMetni.includes("Yükseliş")) sinyalCls = "radar-al";
+            if (sinyalMetni.includes("Aşırı") || sinyalMetni.includes("Sinyali") || sinyalMetni.includes("Sat")) sinyalCls = "radar-sat";
+
+            let scoreCls = (item.skor && item.skor >= 75) ? "high-score" : "";
+
+            tr.innerHTML = `
+                <td style="text-align: left;"><strong style="color:var(--highlight);">${item.hisse}</strong></td>
+                <td style="color: var(--highlight);">₺ ${formatTL(item.fiyat)}</td>
+                <td class="${changeCls}">${sign}${gunlukVal.toFixed(2)}%</td>
+                <td>${item.fk || '-'}</td>
+                <td>${item.pddd || '-'}</td>
+                <td style="color: #26a69a;">${item.temettu || '-'}</td>
+                <td class="${sinyalCls}">${sinyalMetni}</td>
+                <td style="text-align: center;"><span class="badge-skor ${scoreCls}">${item.skor || '0'}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function dosyaSecildiVeGonder(input) {
+        if (input.files.length === 0) return;
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        document.getElementById('loadingText').innerText = "Belge okunuyor ve Fintables rasyoları çıkartılıyor...";
+        document.getElementById('loadingText').style.display = 'block';
+        document.getElementById('radarTableWrapper').style.display = 'none';
+
+        try {
+            const res = await fetch('/api/upload_excel', { method: 'POST', body: formData });
+            if (res.ok) {
+                fintablesRadariniYukle();
+            } else {
+                alert("Yükleme başarısız.");
+            }
+        } catch (err) {
+            alert("Hata oluştu.");
+        }
+        input.value = '';
+    }
+
+    document.getElementById('searchStock').addEventListener('input', (e) => {
+        const query = e.target.value.toUpperCase().trim();
+        if (query === '') {
+            tabloyuCiz(tumRadarData);
+            return;
+        }
+        const filtrelenmis = tumRadarData.filter(item => 
+            (item.hisse && item.hisse.includes(query)) || 
+            (item.sinyal && item.sinyal.toUpperCase().includes(query))
+        );
+        tabloyuCiz(filtrelenmis);
+    });
+
+    window.onload = function() {
+        fintablesRadariniYukle();
+    };
+</script>
+{% endblock %}

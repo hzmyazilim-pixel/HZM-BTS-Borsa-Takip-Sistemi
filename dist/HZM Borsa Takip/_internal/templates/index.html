@@ -1,0 +1,1109 @@
+{% extends 'base.html' %}
+
+{% block title %}Portföyüm - HZM BTS Yönetimi{% endblock %}
+
+{% block extra_css %}
+<style>
+/* HZM ULTRA-WIDE REFORM: Bilgisayarlarda ekranın ortasında sıkışmayı engeller, tam alan kaplar */
+.portfolio-card { 
+    background-color: var(--card-bg); 
+    border-radius: 8px; 
+    padding: 20px; 
+    border: 1px solid var(--accent); 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+/* MODÜL 1: Hedef İlerleme Çubuğu */
+.milestone-container { background: #141416; border: 1px solid var(--accent); padding: 15px; border-radius: 6px; margin-bottom: 20px; width: 100%; box-sizing: border-box; }
+.milestone-bar-bg { background: #23252b; border-radius: 4px; height: 8px; width: 100%; margin-top: 8px; position: relative; }
+.milestone-bar-fill { background: linear-gradient(90deg, #ff9800, #ffb74d); height: 100%; border-radius: 4px; width: 0%; transition: width 1s ease-in-out; }
+
+/* Masaüstü Özet Izgarası */
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; width: 100%; }
+.summary-box { background: var(--bg-color); border: 1px solid var(--accent); padding: 15px; border-radius: 6px; }
+.sum-title { font-size: 0.8em; color: var(--text-dim); margin-bottom: 5px; }
+.sum-val { font-size: 1.4em; font-weight: bold; }
+
+/* MODÜL 3: Yan Yana Grafik Paneli */
+.chart-container-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; width: 100%; }
+.chart-box { background: var(--bg-color); border: 1px solid var(--accent); border-radius: 6px; padding: 15px; height: 200px; min-height: 200px; display: flex; flex-direction: column; align-items: center; }
+
+.editable-cash { cursor: pointer; transition: 0.2s; border-radius: 4px; padding: 2px 4px; display: inline-flex; align-items: center; gap: 6px; }
+.editable-cash:hover { background: var(--accent); color: var(--highlight); }
+.edit-icon { font-size: 0.7em; color: var(--text-dim); }
+
+/* ÇOKLU PANEL YAYILIMI: Geniş ekran monitörler için yan yana konumlandırma */
+.split-container { display: flex; gap: 20px; flex-direction: row; margin-top: 15px; width: 100%; }
+.split-panel { flex: 1; background: rgba(255,255,255,0.01); border: 1px solid var(--accent); padding: 18px; border-radius: 6px; min-width: 0; }
+.panel-title { font-size: 1.1em; font-weight: 500; color: var(--highlight); border-bottom: 1px solid var(--accent); padding-bottom: 8px; margin-top: 0; margin-bottom: 10px; }
+
+.report-panel { width: 100%; background: rgba(255,255,255,0.01); border: 1px solid var(--accent); padding: 15px; border-radius: 6px; margin-top: 20px; box-sizing: border-box; }
+
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85em; min-width: 850px; }
+th, td { padding: 12px 8px; text-align: right; border-bottom: 1px solid var(--accent); vertical-align: middle; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-main); font-weight: 600; background: rgba(0,0,0,0.15); padding: 12px 8px; }
+tr:hover { background: rgba(255,255,255,0.02); }
+
+tr.hisse-row, tr.halka-row { transition: background 0.15s ease; user-select: none; cursor: pointer; }
+
+.hzm-excel-header { display: flex; flex-direction: column; gap: 6px; text-align: inherit; }
+.hzm-excel-header:first-child { align-items: flex-start; }
+.hzm-excel-header span { font-size: 0.95em; }
+.hzm-excel-header select { width: 100%; max-width: 115px; padding: 3px 5px; background: #141416; border: 1px solid var(--accent); color: #fff; border-radius: 4px; font-size: 0.8em; font-weight: normal; box-sizing: border-box; cursor: pointer; }
+
+tfoot tr td { font-weight: bold; border-top: 2px solid var(--accent); border-bottom: none; color: var(--highlight); background: rgba(0,0,0,0.15); padding: 12px 8px; }
+
+.pos { color: var(--pos-color) !important; }
+.neg { color: var(--neg-color) !important; }
+
+/* HZM CONTROL BAR TASARIMI */
+.hzm-control-bar { float: right; display: flex; gap: 10px; align-items: center; }
+.btn-ekle { background: var(--highlight); color: #000; border: none; padding: 10px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; font-size: 0.85em; }
+.btn-hzm-excel { background: #1e1e24; color: #26a69a; border: 1px solid var(--accent); padding: 10px 15px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; font-size: 0.85em; display: inline-flex; align-items: center; gap: 6px; }
+.btn-hzm-excel:hover { background: var(--accent); color: var(--highlight); }
+
+.btn-sat-action { background: #ff9800; color: black; border: none; padding: 6px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 0.8em; margin-right: 4px; display: inline-block; }
+.btn-düzenle-action { background: #2196f3; color: white; border: none; padding: 6px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 0.8em; margin-right: 4px; display: inline-block; }
+.btn-sil { background: transparent; color: var(--text-dim); border: 1px solid var(--accent); padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em; display: inline-block; }
+
+#hisseModal, #satishModal, #nakitModal, #satisGecmisiSilModal, #düzenleModal, #hzmContextMenu { 
+    display: none; 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh; 
+    background: rgba(0, 0, 0, 0.85); 
+    z-index: 9999; 
+    overflow: hidden; 
+    align-items: center; 
+    justify-content: center; 
+}
+
+#hisseModal[style*="block"], 
+#satishModal[style*="block"], 
+#nakitModal[style*="block"], 
+#satisGecmisiSilModal[style*="block"], 
+#düzenleModal[style*="block"] {
+    display: flex !important;
+}
+
+.modal-content { 
+    background: var(--card-bg); 
+    width: 95%; 
+    max-width: 420px; 
+    padding: 20px; 
+    border-radius: 8px; 
+    border: 1px solid var(--accent); 
+    box-sizing: border-box; 
+    position: relative; 
+    margin: 0 auto; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+    animation: hzmModalFade 0.2s ease-out;
+}
+
+.hzm-context-box {
+    background: #141416;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    width: 280px;
+    padding: 12px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    box-sizing: border-box;
+    animation: hzmModalFade 0.15s ease-out;
+}
+.hzm-context-title { font-size: 0.85em; color: var(--text-dim); border-bottom: 1px solid var(--accent); padding-bottom: 8px; margin-bottom: 8px; font-weight: 500; letter-spacing: 0.5px; }
+.hzm-context-btn { width: 100%; padding: 12px; margin-bottom: 6px; border: 1px solid transparent; border-radius: 4px; font-weight: bold; font-size: 0.9em; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+.hzm-context-btn:last-child { margin-bottom: 0; }
+
+.hzm-bank-cash-container { max-height: 220px; overflow-y: auto; border: 1px solid var(--accent); background: rgba(0,0,0,0.15); border-radius: 4px; padding: 10px; margin-bottom: 15px; }
+.hzm-bank-cash-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+.hzm-bank-cash-row:last-child { margin-bottom: 0; }
+.hzm-bank-label { font-size: 0.85em; color: var(--text-main); font-weight: 500; flex: 1; }
+.hzm-bank-input-wrap { position: relative; width: 140px; }
+.hzm-bank-input { width: 100%; padding: 8px 10px !important; background: var(--bg-color) !important; border: 1px solid var(--accent) !important; color: white !important; border-radius: 4px; font-size: 0.9em !important; text-align: right; box-sizing: border-box; }
+.hzm-math-preview { font-size: 0.75em; color: #ff9800; text-align: right; margin-top: 2px; height: 14px; font-weight: bold; }
+.hzm-total-summary-box { background: #141416; border: 1px solid #26a69a; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; }
+
+@keyframes hzmModalFade {
+    from { transform: scale(0.96); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-content h3 { margin-top: 0; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.8em; color: var(--text-dim); margin-bottom: 5px; }
+.form-group input, .form-group select { width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--accent); color: white; border-radius: 4px; box-sizing: border-box; font-size: 1em; }
+
+.modal-top-right-action { position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 6px; font-size: 0.8em; color: var(--text-dim); cursor: pointer; }
+.modal-top-right-action input { cursor: pointer; width: 15px; height: 15px; accent-color: var(--pos-color); }
+
+.flex-input-group { display: flex; gap: 8px; }
+.btn-inline-add { background: var(--accent); color: var(--highlight); border: 1px solid #444; padding: 0 14px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.btn-choice-tamamen { background: var(--neg-color); color: white; border: none; padding: 12px; width: 100%; font-weight: bold; border-radius: 4px; cursor: pointer; margin-bottom: 8px; }
+.btn-choice-normal { background: #ff9800; color: black; border: none; padding: 12px; width: 100%; font-weight: bold; border-radius: 4px; cursor: pointer; margin-bottom: 8px; }
+
+body.hzm-dimmed { filter: contrast(0.85) brightness(0.75) saturate(0.9); }
+
+.mobile-total-toggle { display: none; background: var(--accent); color: var(--highlight); border: 1px solid var(--text-dim); padding: 12px; font-weight: bold; text-align: center; border-radius: 6px; margin-bottom: 15px; cursor: pointer; font-size: 0.9em; }
+.mobile-total-content { display: none; background: #151515; border: 1px solid var(--accent); border-radius: 6px; padding: 12px; margin-bottom: 15px; }
+.mobile-total-content.show { display: block; }
+.mobile-total-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 0.85em; border-bottom: 1px dotted #252525; }
+.mobile-total-item:last-child { border-bottom: none; font-size: 0.95em; font-weight: bold; }
+
+/* TELEFON VE TABLET OPTİMİZASYON DUVARI */
+@media (max-width: 1024px) {
+    .split-container { flex-direction: column; gap: 15px; }
+    .chart-container-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+    .hzm-control-bar { float: none; width: 100%; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .btn-ekle, .btn-hzm-excel { width: 100%; text-align: center; justify-content: center; padding: 12px; }
+    .summary-grid { display: none !important; }
+    .mobile-total-toggle { display: block; }
+    table { font-size: 0.74em; min-width: auto; }
+    th, td { padding: 8px 3px; }
+    .hzm-excel-header select { max-width: 75px; font-size: 0.75em; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="milestone-container">
+    <div style="display:flex; justify-content:space-between; font-size:0.85em;">
+        <span style="font-weight:600; color:var(--text-main)">🎯 AKTİF SİSTEM HEDEFİ: <span style="color:#ff9800">{{ hedef.adi }}</span></span>
+        <span style="font-weight:700;" id="milestoneTxt">0%</span>
+    </div>
+    <div class="milestone-bar-bg">
+        <div class="milestone-bar-fill" id="milestoneFill"></div>
+    </div>
+</div>
+
+<div class="portfolio-card">
+    <div style="overflow: hidden; margin-bottom: 15px;">
+        <h2 style="margin: 0; float: left; font-weight: 500; color: var(--highlight); font-size: 1.4em;">HZM BTS Kontrol Merkezi</h2>
+        <div class="hzm-control-bar">
+            <button class="btn-hzm-excel" onclick="hzmBtsDisaAktarExcel()">
+                📊 EXCEL RAPORU AL
+            </button>
+            <button class="btn-ekle" onclick="openModal()">+ YATIRIM EKLE</button>
+        </div>
+    </div>
+
+    <div class="mobile-total-toggle" onclick="toggleMobilToplam()">📊 PORTFÖY ÖZETİNİ GÖSTER / GİZLE</div>
+    <div id="mobilToplamPanel" class="mobile-total-content">
+        <div class="mobile-total-item"><span>Açık Toplam Maliyet:</span><span style="color: var(--highlight);">₺{{ toplamlar.alis|tl }}</span></div>
+        <div class="mobile-total-item"><span>Portföy Değeri (Anlık):</span><span style="color: var(--highlight);">₺{{ toplamlar.deger|tl }}</span></div>
+        <div class="mobile-total-item"><span>Açık Pozisyon K/Z:</span><span class="{% if toplamlar.kar >= 0 %}pos{% else %}neg{% endif %}">₺{{ toplamlar.kar|tl }} ({{ toplamlar.kz_yuzde }}%)</span></div>
+        <div class="mobile-total-item"><span>Cebe Kalan (Realize Kâr):</span><span class="{% if toplamlar.realize_kar >= 0 %}pos{% else %}neg{% endif %}">₺{{ toplamlar.realize_kar|tl }}</span></div>
+        <div class="mobile-total-item" onclick="closeMobilVeOpenNakit()" style="cursor: pointer;">
+            <span>Hesaptaki Para (Nakit):</span>
+            <span id="m_nakit_box" class="{% if toplamlar.hesap_para >= 0 %}pos{% else %}neg{% endif %}" style="font-weight: bold;">₺{{ toplamlar.hesap_para|tl }} ✏️</span>
+        </div>
+        <div class="mobile-total-item" style="background: rgba(255,255,255,0.03); padding: 10px 5px; margin-top: 5px; border-radius: 4px;"><span style="color: var(--highlight);">TOPLAM FİNANSAL GÜÇ:</span><span style="color: var(--highlight);">₺{{ toplamlar.toplam_portfoy|tl }}</span></div>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-box"><div class="sum-title">AÇIK TOPLAM MALİYET</div><div class="sum-val" style="color: var(--highlight);">₺{{ toplamlar.alis|tl }}</div></div>
+        <div class="summary-box"><div class="sum-title">PORTFÖY DEĞERİ (ANLIK)</div><div class="sum-val" style="color: var(--highlight);">₺{{ toplamlar.deger|tl }}</div></div>
+        <div class="summary-box"><div class="sum-title">AÇIK POZİSYON K/Z</div><div class="sum-val {% if toplamlar.kar >= 0 %}pos{% else %}neg{% endif %}">₺{{ toplamlar.kar|tl }} ({{ toplamlar.kz_yuzde }}%)</div></div>
+        <div class="summary-box"><div class="sum-title">CEBE KALAN (REALİZE KÂR)</div><div class="sum-val {% if toplamlar.realize_kar >= 0 %}pos{% else %}neg{% endif %}">₺{{ toplamlar.realize_kar|tl }}</div></div>
+        
+        <div class="summary-box" style="border-color: var(--accent);">
+            <div class="sum-title">HESAPTAKİ PARA (NAKİT)</div>
+            <div class="sum-val editable-cash" onclick="openNakitModal()" title="Bankaların nakit kırılımını düzenlemek için tıklayın">
+                <span id="d_nakit_box" class="{% if toplamlar.hesap_para >= 0 %}pos{% else %}neg{% endif %}">₺{{ toplamlar.hesap_para|tl }}</span>
+                <span class="edit-icon">✏️</span>
+            </div>
+        </div>
+        <div class="summary-box" style="background: linear-gradient(135deg, #141416 0%, #1c1c1e 100%); border: 1px dashed #ff9800;"><div class="sum-title" style="color: #ff9800; font-weight: bold;">TOPLAM FİNANSAL GÜÇ</div><div class="sum-val" id="currentGucVal" data-val="{{ toplamlar.toplam_portfoy }}" style="color: var(--highlight);">₺{{ toplamlar.toplam_portfoy|tl }}</div></div>
+    </div>
+
+    <div class="chart-container-grid">
+        <div class="chart-box"><canvas id="bankaChart"></canvas></div>
+        <div class="chart-box"><canvas id="turChart"></canvas></div>
+    </div>
+
+    <div class="split-container">
+        <div class="split-panel">
+            <h3 class="panel-title">📊 HİSSE SENETLERİ PORTFÖYÜ</h3>
+            <div class="table-responsive">
+                <table id="hisseTable">
+                    <thead>
+                        <tr>
+                            <th>
+                                <div class="hzm-excel-header">
+                                    <span>Aracı Kurum</span>
+                                    <select id="sf_hisse_banka" onchange="hzmExcelEngine('hisse')"><option value="">(Tümü)</option></select>
+                                </div>
+                            </th>
+                            <th>
+                                <div class="hzm-excel-header">
+                                    <span>Hisse Kodu</span>
+                                    <select id="sf_hisse_kod" onchange="hzmExcelEngine('hisse')"><option value="">(Tümü)</option></select>
+                                </div>
+                            </th>
+                            <th>Canlı Fiyat</th>
+                            <th>Birim Maliyet</th>
+                            <th>Adet (Lot)</th>
+                            <th style="color: #ff9800; text-align: right;">Toplam Alış Maliyeti</th> <th>Anlık Değer</th>
+                            <th>K/Z (Tutar)</th>
+                            <th>K/Z (%)</th>
+                            <th>Strateji Notu</th>
+                            <th style="text-align:center; width:160px;" class="hzm-no-export">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in hisseler %}
+                        <tr class="hisse-row" data-id="{{ p.id }}" data-banka="{{ p.banka }}" data-kod="{{ p.hisse }}" data-lot="{{ p.lot }}" data-alim-fiyati="{{ p.alim_fiyati }}" data-fiyat="{{ p.fiyat }}" data-notlar="{{ p.notlar or '' }}" data-maliyet="{{ p.alis }}" data-deger="{{ p.deger }}" data-type="HİSSE">
+                            <td style="text-align:left; color:var(--text-dim)">{{ p.banka }}</td>
+                            <td style="text-align:left;"><strong>{{ p.hisse }}</strong></td>
+                            <td style="color:var(--highlight)">₺{{ p.fiyat|tl }}</td>
+                            <td style="color:var(--text-dim)">₺{{ p.alim_fiyati|tl }}</td>
+                            <td>{{ p.lot }}</td>
+                            <td style="color: #ff9800; font-weight: 500;">₺{{ p.alis|tl }}</td> <td style="color:var(--highlight)">₺{{ p.deger|tl }}</td>
+                            <td class="{% if p.kar >= 0 %}pos{% else %}neg{% endif %}" style="font-weight: 500;">₺{{ p.kar|tl }}</td>
+                            <td class="{% if p.kar >= 0 %}pos{% else %}neg{% endif %}">{{ p.kz }}%</td>
+                            <td style="text-align:left; color:var(--text-dim); font-size:0.9em; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ p.notlar }}">{{ p.notlar or '-' }}</td>
+                            <td style="text-align:center;" onclick="event.stopPropagation()" class="hzm-no-export">
+                                <button class="btn-sat-action" onclick="openSatishModal({{ p.id }}, '{{ p.hisse }}', {{ p.lot }}, {{ p.fiyat }})">Sat</button>
+                                <button class="btn-düzenle-action" onclick="openDüzenleModal({{ p.id }}, '{{ p.hisse }}', '{{ p.banka }}', {{ p.lot }}, {{ p.alim_fiyati }}, {{ p.fiyat }}, '{{ p.notlar }}', 'HİSSE')">Düzelt</button>
+                                <button class="btn-sil" onclick="hisseSil({{ p.id }})">X</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" style="text-align: left;">GRUP TOPLAMI</td>
+                            <td id="hisse_total_maliyet" style="color: #ff9800;">₺{{ toplamlar.hisse_toplam_maliyet|tl }}</td> <td id="hisse_total_deger">₺{{ toplamlar.hisse_toplam_deger|tl }}</td>
+                            <td id="hisse_total_kar" class="{% if toplamlar.hisse_grup_kz >= 0 %}pos{% else %}neg{% endif %}">₺{{ (toplamlar.hisse_toplam_deger - toplamlar.hisse_toplam_maliyet)|tl }}</td>
+                            <td id="hisse_total_yuzde" class="{% if toplamlar.hisse_grup_kz >= 0 %}pos{% else %}neg{% endif %}">{{ toplamlar.hisse_grup_kz }}%</td>
+                            <td colspan="2" class="hzm-no-export"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="split-container">
+        <div class="split-panel">
+            <h3 class="panel-title">🚀 HALKA ARZ POTASI</h3>
+            <div class="table-responsive">
+                <table id="halkaTable">
+                    <thead>
+                        <tr>
+                            <th>
+                                <div class="hzm-excel-header">
+                                    <span>Aracı Kurum</span>
+                                    <select id="sf_halka_banka" onchange="hzmExcelEngine('halka')"><option value="">(Tümü)</option></select>
+                                </div>
+                            </th>
+                            <th>
+                                <div class="hzm-excel-header">
+                                    <span>Hisse Kodu</span>
+                                    <select id="sf_halka_kod" onchange="hzmExcelEngine('halka')"><option value="">(Tümü)</option></select>
+                                </div>
+                            </th>
+                            <th>Canlı Fiyat</th>
+                            <th>Birim Maliyet</th>
+                            <th>Adet (Lot)</th>
+                            <th style="color: #ff9800; text-align: right;">Toplam Alış Maliyeti</th> <th>Anlık Değer</th>
+                            <th>K/Z (Tutar)</th>
+                            <th>K/Z (%)</th>
+                            <th>Strateji Notu</th>
+                            <th style="text-align:center; width:160px;" class="hzm-no-export">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in halka_arzlar %}
+                        <tr class="halka-row" data-id="{{ p.id }}" data-banka="{{ p.banka }}" data-kod="{{ p.hisse }}" data-lot="{{ p.lot }}" data-alim-fiyati="{{ p.alim_fiyati }}" data-fiyat="{{ p.fiyat }}" data-notlar="{{ p.notlar or '' }}" data-maliyet="{{ p.alis }}" data-deger="{{ p.deger }}" data-type="HALKA_ARZ">
+                            <td style="text-align:left; color:var(--text-dim)">{{ p.banka }}</td>
+                            <td style="text-align:left;"><strong>{{ p.hisse }}</strong></td>
+                            <td style="color:var(--highlight)">₺{{ p.fiyat|tl }}</td>
+                            <td style="color:var(--text-dim)">₺{{ p.alim_fiyati|tl }}</td>
+                            <td>{{ p.lot }}</td>
+                            <td style="color: #ff9800; font-weight: 500;">₺{{ p.alis|tl }}</td> <td style="color:var(--highlight)">₺{{ p.deger|tl }}</td>
+                            <td class="{% if p.kar >= 0 %}pos{% else %}neg{% endif %}" style="font-weight: 500;">₺{{ p.kar|tl }}</td>
+                            <td class="{% if p.kar >= 0 %}pos{% else %}neg{% endif %}">{{ p.kz }}%</td>
+                            <td style="text-align:left; color:var(--text-dim); font-size:0.9em; max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ p.notlar }}">{{ p.notlar or '-' }}</td>
+                            <td style="text-align:center;" onclick="event.stopPropagation()" class="hzm-no-export">
+                                <button class="btn-sat-action" onclick="openSatishModal({{ p.id }}, '{{ p.hisse }}', {{ p.lot }}, {{ p.fiyat }})">Sat</button>
+                                <button class="btn-düzenle-action" onclick="openDüzenleModal({{ p.id }}, '{{ p.hisse }}', '{{ p.banka }}', {{ p.lot }}, {{ p.alim_fiyati }}, {{ p.fiyat }}, '{{ p.notlar }}', 'HALKA_ARZ')">Düzelt</button>
+                                <button class="btn-sil" onclick="hisseSil({{ p.id }})">X</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" style="text-align: left;">GRUP TOPLAMI</td>
+                            <td id="halka_total_maliyet" style="color: #ff9800;">₺{{ toplamlar.halka_toplam_maliyet|tl }}</td> <td id="halka_total_deger">₺{{ toplamlar.halka_toplam_deger|tl }}</td>
+                            <td id="halka_total_kar" class="{% if toplamlar.halka_grup_kz >= 0 %}pos{% else %}neg{% endif %}">₺{{ (toplamlar.halka_toplam_deger - toplamlar.halka_toplam_maliyet)|tl }}</td>
+                            <td id="halka_total_yuzde" class="{% if toplamlar.halka_grup_kz >= 0 %}pos{% else %}neg{% endif %}">{{ toplamlar.halka_grup_kz }}%</td>
+                            <td colspan="2" class="hzm-no-export"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="report-panel" id="hzmSatisGecmisiPanel">
+        <h3 class="panel-title" style="color: #ff9800;">💼 SATIŞ GEÇMİŞİ VE REALİZE KÂR RAPORU</h3>
+        <div class="table-responsive">
+            <table id="satisTable">
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">Kurum / Banka</th>
+                        <th style="text-align: left;">Hisse (Tür)</th>
+                        <th>Satılan Lot</th>
+                        <th>Alış Fiyatı</th>
+                        <th>Satış Fiyatı</th>
+                        <th>Satış Hasılatı</th>
+                        <th>Net Kar / Zarar</th>
+                        <th style="text-align: left; max-width: 120px;">Satış Gerekçesi</th>
+                        <th>İşlem Tarihi</th>
+                        <th style="text-align: center; width: 60px;" class="hzm-no-export">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in satis_raporu %}
+                    <tr>
+                        <td style="text-align: left; color: var(--text-dim);">{{ s.banka }}</td>
+                        <td style="text-align: left;">
+                            <strong style="color: var(--highlight);">{{ s.hisse }}</strong> 
+                            <span style="font-size: 0.8em; color: var(--text-dim);">({{ s.tur }})</span>
+                        </td>
+                        <td style="color: var(--highlight);">{{ s.lot }}</td>
+                        <td>₺{{ s.alis|tl }}</td>
+                        <td>₺{{ s.satis|tl }}</td>
+                        <td style="color: var(--highlight);">₺{{ s.deger|tl }}</td>
+                        <td class="{% if s.kar >= 0 %}pos{% else %}neg{% endif %}" style="font-weight: bold;">₺{{ s.kar|tl }}</td>
+                        <td style="text-align:left; color:var(--text-dim); font-size:0.9em; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ s.notlar }}">{{ s.notlar or '-' }}</td>
+                        <td style="color: var(--text-dim); font-size: 0.9em;">{{ s.tarih }}</td>
+                        <td style="text-align: center;" class="hzm-no-export">
+                            <button class="btn-sil" onclick="openSatisGecmisiSilModal({{ s.id }}, '{{ s.hisse }}')">Sil</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2" style="text-align: left;">TOPLAM GEÇMİŞ</td>
+                        <td>{{ toplamlar.satis_toplam_lot }}</td>
+                        <td colspan="2"></td>
+                        <td>₺{{ toplamlar.satis_toplam_deger|tl }}</td>
+                        <td class="{% if toplamlar.satis_toplam_kar >= 0 %}pos{% else %}neg{% endif %}">₺{{ toplamlar.satis_toplam_kar|tl }}</td>
+                        <td colspan="3" class="hzm-no-export"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="hzmContextMenu" onclick="closeContextMenu()">
+    <div class="hzm-context-box" onclick="event.stopPropagation()">
+        <div class="hzm-context-title" id="ctxMenuTitle">POZİSYON İŞLEMLERİ</div>
+        <button class="hzm-context-btn" style="background: rgba(33, 150, 243, 0.1); color: #2196f3; border: 1px solid rgba(33, 150, 243, 0.3);" id="ctxBtnDuzenle">
+            ✏️ Pozisyonu Düzenle (Düzelt)
+        </button>
+        <button class="hzm-context-btn" style="background: rgba(255, 152, 0, 0.1); color: #ff9800; border: 1px solid rgba(255, 152, 0, 0.3);" id="ctxBtnSat">
+            💼 Hisse Senedi Satışı Yap
+        </button>
+        <button class="hzm-context-btn" style="background: rgba(239, 83, 80, 0.1); color: #ef5350; border: 1px solid rgba(239, 83, 80, 0.3);" id="ctxBtnSil">
+            ❌ Portföyden Tamamen Sil
+        </button>
+        <button class="btn-iptal" style="width:100%; margin-top:8px; border:1px solid var(--accent); background:transparent; color:var(--text-main); padding:10px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:0.85em;" onclick="closeContextMenu()">
+            Kapat
+        </button>
+    </div>
+</div>
+
+<div id="hisseModal">
+    <div class="modal-content">
+        <label class="modal-top-right-action">
+            <input type="checkbox" id="hesaptanDusCheck" checked>
+            <span>Hesaptan Düş</span>
+        </label>
+        
+        <h3 style="color: var(--highlight); margin-bottom:20px;">Yeni Yatırım Ekle</h3>
+        <div class="form-group">
+            <label>Yatırım Türü</label>
+            <select id="yatirimTuru">
+                <option value="HİSSE">Hisse Senedi</option>
+                <option value="HALKA_ARZ">Halka Arz</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Hisse Kodu</label>
+            <input type="text" id="hisseKodu" placeholder="THYAO">
+        </div>
+        <div class="form-group">
+            <label>Aracı Kurum / Banka Seçimi</label>
+            <div class="flex-input-group">
+                <select id="bankaSecimi"></select>
+                <button class="btn-inline-add" onclick="promptBankaEkle()">+</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Lot Miktarı</label>
+            <input type="number" step="any" id="lot" placeholder="10">
+        </div>
+        <div class="form-group">
+            <label>Alım Fiyatı (₺)</label>
+            <input type="number" step="any" id="alimFiyati" placeholder="45.50">
+        </div>
+        <div class="form-group">
+            <label>Strateji Notu</label>
+            <input type="text" id="hisseNotu" placeholder="Destek seviyesi alımı vb.">
+        </div>
+        <button class="btn-choice-normal" style="background:var(--highlight); color:black;" onclick="kaydetHisse()">Portföye Ekle</button>
+        <button class="btn-iptal" style="width:100%; border:1px solid var(--accent); background:transparent; color:var(--text-dim); padding:12px; border-radius:4px; cursor:pointer;" onclick="closeModal()">İptal</button>
+    </div>
+</div>
+
+<div id="düzenleModal">
+    <div class="modal-content" style="border-color: #2196f3;">
+        <h3 style="color: #2196f3;">Pozisyon Güncelleme Paneli</h3>
+        <input type="hidden" id="editId">
+        <div class="form-group">
+            <label>Yatırım Türü</label>
+            <select id="editTur">
+                <option value="HİSSE">Hisse Senedi</option>
+                <option value="HALKA_ARZ">Halka Arz</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Hisse Kodu</label>
+            <input type="text" id="editHisseKod" readonly style="opacity: 0.5; background: #222;">
+        </div>
+        <div class="form-group">
+            <label>Aracı Kurum / Banka</label>
+            <div class="flex-input-group">
+                <select id="editBankaSecimi"></select>
+                <button class="btn-inline-add" onclick="promptBankaEkle(true)">+</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Mevcut Lot Miktarı</label>
+            <input type="number" step="any" id="editLotInput">
+        </div>
+        <div class="form-group">
+            <label>Alış Maliyet Fiyatı (₺)</label>
+            <input type="number" step="any" id="editAlimFiyatiInput">
+        </div>
+        <div class="form-group" style="border: 1px dashed rgba(33, 150, 243, 0.4); padding: 8px; border-radius: 4px;">
+            <label style="color: #2196f3; font-weight: bold;">Canlı/Manuel Güncel Fiyat (₺)</label>
+            <input type="number" step="any" id="editGuncelFiyatInput" placeholder="Fintables verisini ezmek için girin">
+        </div>
+        <div class="form-group">
+            <label>Strateji Notu</label>
+            <input type="text" id="editNotInput">
+        </div>
+        <button class="btn-choice-normal" style="background:#2196f3; color:white;" onclick="onaylaPozisyonDuzenle()">Değişiklikleri Kaydet</button>
+        <button class="btn-iptal" style="width:100%; border:1px solid var(--accent); background:transparent; color:var(--text-dim); padding:12px; border-radius:4px; cursor:pointer;" onclick="closeDüzenleModal()">İptal</button>
+    </div>
+</div>
+
+<div id="satishModal">
+    <div class="modal-content">
+        <h3 style="color: #ff9800;">Hisse Satış Paneli</h3>
+        <input type="hidden" id="satishId">
+        <div class="form-group">
+            <label>Hisse Senedi</label>
+            <input type="text" id="satishHisseKod" readonly style="opacity: 0.5; background: #222;">
+        </div>
+        <div class="form-group">
+            <label>Mevcut Lot</label>
+            <input type="text" id="satishMaxLot" readonly style="opacity: 0.5; background: #222;">
+        </div>
+        <div class="form-group">
+            <label>Satılacak Lot</label>
+            <input type="number" step="any" id="satishLotInput">
+        </div>
+        <div class="form-group">
+            <label>Satış Fiyatı (₺)</label>
+            <input type="number" step="any" id="satishFiyatInput">
+        </div>
+        <div class="form-group">
+            <label>Satış Gerekçesi (Not)</label>
+            <input type="text" id="satishNotInput" placeholder="Kâr realizasyonu, hedef fiyat vb.">
+        </div>
+        <button class="btn-choice-normal" onclick="onaylahisseSatish()">Satışı Onayla</button>
+        <button class="btn-iptal" style="width:100%; border:1px solid var(--accent); background:transparent; color:var(--text-dim); padding:12px; border-radius:4px; cursor:pointer;" onclick="closeSatishModal()">İptal</button>
+    </div>
+</div>
+
+<div id="nakitModal">
+    <div class="modal-content" style="border-color: #26a69a; max-width: 440px;">
+        <h3 style="color: #26a69a; margin-bottom: 5px;">Bakiye Düzenleme İstasyonu</h3>
+        <p style="font-size:0.78em; color:var(--text-dim); margin-bottom:15px;">* Değer alanlarına hesap formülü yazabilirsiniz (Örn: 520 + 50)</p>
+        
+        <div class="hzm-bank-cash-container" id="hzmBankCashGrid"></div>
+        
+        <div class="hzm-total-summary-box">
+            <span style="color: var(--text-dim); font-size: 0.85em;">HZM TOPLAM KASA NAKİT:</span>
+            <span style="color: #26a69a; font-size: 1.1em;" id="hzmNakitMatrisToplam">₺0,00</span>
+        </div>
+
+        <button class="btn-choice-normal" style="background:#26a69a; color:white;" onclick="kaydetNakitParasi()">Bakiyeleri Veritabanına Mühürle</button>
+        <button class="btn-iptal" style="width:100%; border:1px solid var(--accent); background:transparent; color:var(--text-dim); padding:12px; border-radius:4px; cursor:pointer;" onclick="closeNakitModal()">İptal</button>
+    </div>
+</div>
+
+<div id="satisGecmisiSilModal">
+    <div class="modal-content" style="border-color: #ff9800;">
+        <h3 style="color: #ff9800;">Satış Kaydı Silme Paneli</h3>
+        <input type="hidden" id="silinecekSatisId">
+        <p style="font-size: 0.9em; color: var(--text-main); margin-bottom: 20px;">
+            <strong id="silinecekSatisHisseKod" style="color:var(--highlight);"></strong> hissesine ait bu satış kaydı için silme yöntemini seçin:
+        </p>
+        <button class="btn-choice-tamamen" onclick="onaylaSatisKaydiSil('TAMAMEN')">❌ TAMAMEN SİL (KÂRDAN DÜŞ)</button>
+        <button class="btn-choice-normal" onclick="onaylaSatisKaydiSil('NORMAL')">🧹 NORMAL SİL (KÂR KALSIN)</button>
+        <button class="btn-iptal" style="margin-top: 15px; width:100%; border:1px solid var(--accent); background:transparent; color:var(--text-dim); padding:12px; border-radius:4px; cursor:pointer;" onclick="closeSatisGecmisiSilModal()">Vazgeç</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block block_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let nakitChartInstance = null;
+    let bankaChartInstance = null;
+    
+    let aktifBankalar = Array.from(new Set([
+        {% for p in hisseler %}"{{ p.banka }}",{% endfor %}
+        {% for p in halka_arzlar %}"{{ p.banka }}",{% endfor %}
+    ].filter(Boolean)));
+
+    if(aktifBankalar.length === 0) {
+        aktifBankalar = ["Ziraat Bankası", "Vakıfbank", "Garanti BBVA", "İş Bankası", "Yapı Kredi", "Midas"];
+    }
+
+    function hzmExcelSuezgecleriDoldur() {
+        const hisseBankSelect = document.getElementById('sf_hisse_banka');
+        const hisseKodSelect = document.getElementById('sf_hisse_kod');
+        const halkaBankSelect = document.getElementById('sf_halka_banka');
+        const halkaKodSelect = document.getElementById('sf_halka_kod');
+
+        let uHisseKodlari = Array.from(new Set(Array.from(document.querySelectorAll('.hisse-row')).map(r => r.getAttribute('data-kod')))).sort();
+        let uHalkaKodlari = Array.from(new Set(Array.from(document.querySelectorAll('.halka-row')).map(r => r.getAttribute('data-kod')))).sort();
+
+        hisseBankSelect.innerHTML = '<option value="">(Tümü)</option>';
+        hisseKodSelect.innerHTML = '<option value="">(Tümü)</option>';
+        halkaBankSelect.innerHTML = '<option value="">(Tümü)</option>';
+        halkaKodSelect.innerHTML = '<option value="">(Tümü)</option>';
+
+        aktifBankalar.sort().forEach(b => {
+            hisseBankSelect.innerHTML += `<option value="${b}">${b}</option>`;
+            halkaBankSelect.innerHTML += `<option value="${b}">${b}</option>`;
+        });
+
+        uHisseKodlari.forEach(k => { hisseKodSelect.innerHTML += `<option value="${k}">${k}</option>`; });
+        uHalkaKodlari.forEach(k => { halkaKodSelect.innerHTML += `<option value="${k}">${k}</option>`; });
+    }
+
+    function hzmExcelEngine(tabloTipi) {
+        if (tabloTipi === 'hisse') {
+            const fBanka = document.getElementById('sf_hisse_banka').value;
+            const fKod = document.getElementById('sf_hisse_kod').value;
+            let tMaliyet = 0, tDeger = 0;
+
+            document.querySelectorAll('.hisse-row').forEach(row => {
+                const rowBanka = row.getAttribute('data-banka');
+                const rowKod = row.getAttribute('data-kod');
+                const m = parseFloat(row.getAttribute('data-maliyet'));
+                const d = parseFloat(row.getAttribute('data-deger'));
+
+                if ((!fBanka || rowBanka === fBanka) && (!fKod || rowKod === fKod)) {
+                    row.style.display = ''; tMaliyet += m; tDeger += d;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const tKar = tDeger - tMaliyet;
+            const tYuzde = tMaliyet > 0 ? ((tKar / tMaliyet) * 100).toFixed(2) : '0.00';
+
+            document.getElementById('hisse_total_maliyet').innerText = '₺' + formatTL(tMaliyet); // Dinamik Maliyet Filtresi
+            document.getElementById('hisse_total_deger').innerText = '₺' + formatTL(tDeger);
+            const karEl = document.getElementById('hisse_total_kar');
+            const yuzdeEl = document.getElementById('hisse_total_yuzde');
+
+            karEl.innerText = '₺' + formatTL(tKar); yuzdeEl.innerText = tYuzde + '%';
+            karEl.className = tKar >= 0 ? 'pos' : 'neg'; yuzdeEl.className = tKar >= 0 ? 'pos' : 'neg';
+        }
+
+        if (tabloTipi === 'halka') {
+            const fBanka = document.getElementById('sf_halka_banka').value;
+            const fKod = document.getElementById('sf_halka_kod').value;
+            let tMaliyet = 0, tDeger = 0;
+
+            document.querySelectorAll('.halka-row').forEach(row => {
+                const rowBanka = row.getAttribute('data-banka');
+                const rowKod = row.getAttribute('data-kod');
+                const m = parseFloat(row.getAttribute('data-maliyet'));
+                const d = parseFloat(row.getAttribute('data-deger'));
+
+                if ((!fBanka || rowBanka === fBanka) && (!fKod || rowKod === fKod)) {
+                    row.style.display = ''; tMaliyet += m; tDeger += d;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const tKar = tDeger - tMaliyet;
+            const fYuzde = tMaliyet > 0 ? ((tKar / tMaliyet) * 100).toFixed(2) : '0.00';
+
+            document.getElementById('halka_total_maliyet').innerText = '₺' + formatTL(tMaliyet); // Dinamik Maliyet Filtresi
+            document.getElementById('halka_total_deger').innerText = '₺' + formatTL(tDeger);
+            const karEl = document.getElementById('halka_total_kar');
+            const yuzdeEl = document.getElementById('halka_total_yuzde');
+
+            karEl.innerText = '₺' + formatTL(tKar); yuzdeEl.innerText = fYuzde + '%';
+            karEl.className = tKar >= 0 ? 'pos' : 'neg'; yuzdeEl.className = tKar >= 0 ? 'pos' : 'neg';
+        }
+    }
+
+    function bankaSecenekleriniGuncelle() {
+        const addSelect = document.getElementById('bankaSecimi');
+        const editSelect = document.getElementById('editBankaSecimi');
+        addSelect.innerHTML = ''; editSelect.innerHTML = '';
+        aktifBankalar.sort().forEach(b => {
+            addSelect.innerHTML += `<option value="${b}">${b}</option>`;
+            editSelect.innerHTML += `<option value="${b}">${b}</option>`;
+        });
+    }
+
+    function promptBankaEkle(isEdit = false) {
+        const yeniBanka = prompt("Eklenecek Yeni Aracı Kurum / Banka Adı:");
+        if (yeniBanka && yeniBanka.trim() !== "") {
+            const temizBanka = yeniBanka.trim();
+            if(!aktifBankalar.includes(temizBanka)) {
+                aktifBankalar.push(temizBanka);
+                bankaSecenekleriniGuncelle();
+                hzmExcelSuezgecleriDoldur();
+            }
+            if(isEdit) document.getElementById('editBankaSecimi').value = temizBanka;
+            else document.getElementById('bankaSecimi').value = temizBanka;
+        }
+    }
+
+    function setupHzmRowShortcuts() {
+        const rows = document.querySelectorAll('.hisse-row, .halka-row');
+        
+        rows.forEach(row => {
+            row.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                openHzmContextMenu(row);
+            });
+
+            let lastTap = 0;
+            row.addEventListener('touchend', function(e) {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                if (tapLength < 300 && tapLength > 0) {
+                    e.preventDefault();
+                    openHzmContextMenu(row);
+                }
+                lastTap = currentTime;
+            });
+            
+            row.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                openHzmContextMenu(row);
+            });
+        });
+    }
+
+    function openHzmContextMenu(row) {
+        const id = row.getAttribute('data-id');
+        const kod = row.getAttribute('data-kod');
+        const banka = row.getAttribute('data-banka');
+        const lot = row.getAttribute('data-lot');
+        const alimFiyati = row.getAttribute('data-alim-fiyati');
+        const fiyat = row.getAttribute('data-fiyat');
+        const notlar = row.getAttribute('data-notlar');
+        const type = row.getAttribute('data-type');
+
+        document.getElementById('ctxMenuTitle').innerText = `⚡ ${kod} - Pozisyon Yönetimi`;
+        
+        document.getElementById('ctxBtnDuzenle').onclick = function() {
+            closeContextMenu();
+            openDüzenleModal(id, kod, banka, lot, alimFiyati, fiyat, notlar, type);
+        };
+        
+        document.getElementById('ctxBtnSat').onclick = function() {
+            closeContextMenu();
+            openSatishModal(id, kod, lot, fiyat);
+        };
+        
+        document.getElementById('ctxBtnSil').onclick = function() {
+            closeContextMenu();
+            hisseSil(id); 
+        };
+
+        document.getElementById('hzmContextMenu').style.display = 'flex';
+    }
+
+    function closeContextMenu() {
+        document.getElementById('hzmContextMenu').style.display = 'none';
+    }
+
+    function toggleMobilToplam() { document.getElementById('mobilToplamPanel').classList.toggle('show'); }
+    function closeMobilVeOpenNakit() { toggleMobilToplam(); openNakitModal(); }
+    function openModal() { bankaSecenekleriniGuncelle(); document.getElementById('hisseModal').style.display = 'block'; }
+    function closeModal() { document.getElementById('hisseModal').style.display = 'none'; }
+
+    function openSatishModal(id, hisse, maxLot, canliFiyat) {
+        document.getElementById('satishId').value = id;
+        document.getElementById('satishHisseKod').value = hisse;
+        document.getElementById('satishMaxLot').value = maxLot;
+        document.getElementById('satishLotInput').value = maxLot;
+        document.getElementById('satishFiyatInput').value = canliFiyat;
+        document.getElementById('satishModal').style.display = 'block';
+    }
+    function closeSatishModal() { document.getElementById('satishModal').style.display = 'none'; }
+
+    function openDüzenleModal(id, hisse, banka, lot, alimFiyati, guncelFiyat, notlar, tur) {
+        bankaSecenekleriniGuncelle();
+        document.getElementById('editId').value = id;
+        document.getElementById('editHisseKod').value = hisse;
+        document.getElementById('editBankaSecimi').value = banka;
+        document.getElementById('editLotInput').value = lot;
+        document.getElementById('editAlimFiyatiInput').value = alimFiyati;
+        document.getElementById('editGuncelFiyatInput').value = guncelFiyat;
+        document.getElementById('editNotInput').value = notlar;
+        document.getElementById('editTur').value = tur;
+        document.getElementById('düzenleModal').style.display = 'block';
+    }
+    function closeDüzenleModal() { document.getElementById('düzenleModal').style.display = 'none'; }
+
+    function hzmFormulHesapla(str) {
+        try {
+            let temizString = str.replace(/[^0-9.+\-*/()]/g, '');
+            if(!temizString) return 0;
+            let sonuc = Function(`"use strict"; return (${temizString})`)();
+            return isNaN(sonuc) || !isFinite(sonuc) ? 0 : parseFloat(sonuc);
+        } catch(e) { return null; }
+    }
+
+    function hzmNakitMatrisiniTetikle() {
+        let toplamNakit = 0;
+        document.querySelectorAll('.hzm-bank-input').forEach(input => {
+            const valStr = input.value.trim();
+            const previewId = 'preview_' + input.id;
+            const previewEl = document.getElementById(previewId);
+            let safDeger = 0;
+            
+            if (valStr.includes('+') || valStr.includes('-') || valStr.includes('*') || valStr.includes('/')) {
+                let formulSonuc = hzmFormulHesapla(valStr);
+                if (formulSonuc !== null) {
+                    safDeger = formulSonuc;
+                    previewEl.innerText = '= ₺' + formatTL(safDeger);
+                    input.setAttribute('data-computed', safDeger);
+                } else {
+                    previewEl.innerText = 'Formül Hatası';
+                    input.setAttribute('data-computed', 0);
+                }
+            } else {
+                safDeger = parseFloat(valStr) || 0;
+                previewEl.innerText = '';
+                input.setAttribute('data-computed', safDeger);
+            }
+            toplamNakit += safDeger;
+        });
+        document.getElementById('hzmNakitMatrisToplam').innerText = '₺' + formatTL(toplamNakit);
+    }
+
+    async function openNakitModal() {
+        const grid = document.getElementById('hzmBankCashGrid');
+        grid.innerHTML = '<p style="font-size:0.8em; color:var(--text-dim); text-align:center;">Bankalar yükleniyor...</p>';
+        try {
+            const res = await fetch('/api/get_banka_nakitleri');
+            const result = await res.json();
+            const bankaBakiyeleri = result.data || {};
+            grid.innerHTML = '';
+            
+            aktifBankalar.sort().forEach((banka, idx) => {
+                const bakiyeValue = bankaBakiyeleri[banka] !== undefined ? bankaBakiyeleri[banka] : 0;
+                const row = document.createElement('div');
+                row.className = 'hzm-bank-cash-row';
+                row.innerHTML = `
+                    <div class="hzm-bank-label">🏛️ ${banka}</div>
+                    <div class="hzm-bank-input-wrap">
+                        <input type="text" id="bankInput_${idx}" data-bankname="${banka}" class="hzm-bank-input" value="${bakiyeValue}" oninput="hzmNakitMatrisiniTetikle()">
+                        <div class="hzm-math-preview" id="preview_bankInput_${idx}"></div>
+                    </div>
+                `;
+                grid.appendChild(row);
+            });
+            hzmNakitMatrisiniTetikle();
+            document.getElementById('nakitModal').style.display = 'block';
+        } catch (e) {
+            grid.innerHTML = '<p style="font-size:0.8em; color:var(--neg-color); text-align:center;">API Hatası!</p>';
+        }
+    }
+    
+    function closeNakitModal() { document.getElementById('nakitModal').style.display = 'none'; }
+
+    async function kaydetNakitParasi() {
+        let bankaBakiyeHaritasi = {};
+        let toplamHesapPara = 0;
+        document.querySelectorAll('.hzm-bank-input').forEach(input => {
+            const bankaAdi = input.getAttribute('data-bankname');
+            const netBakiye = parseFloat(input.getAttribute('data-computed')) || 0;
+            bankaBakiyeHaritasi[bankaAdi] = netBakiye;
+            toplamHesapPara += netBakiye;
+        });
+        const res = await fetch('/api/hesap_para_guncelle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hesapPara: toplamHesapPara, bankaDetaylari: bankaBakiyeHaritasi })
+        });
+        if (res.ok) window.location.reload();
+    }
+
+    // --- HZM REFORM: SÜZGEÇ DUYARLI VE GELİŞMİŞ EXCEL DIŞA AKTARMA MOTORU ---
+    function formatTL(val) {
+        if (val === null || val === undefined || isNaN(val)) return "0,00";
+        return parseFloat(val).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function hzmBtsDisaAktarExcel() {
+        let csvContent = "\ufeff"; // Excel Türkçe karakter koruma ön-mührü
+        
+        // 1. ADIM: BANKA BAZLI NAKİT MATRİSİNİ EXCEL BAŞINA ENTEGRE ETME
+        csvContent += `"=== NAKİT KASA VE BANKA DAĞILIMI ===";\n`;
+        csvContent += `"Aracı Kurum / Banka";"Mevcut Nakit Bakiye"\n`;
+
+        let raporToplamNakit = 0;
+        document.querySelectorAll('.hzm-bank-input').forEach(input => {
+            const bankaName = input.getAttribute('data-bankname');
+            const bankaBakiye = parseFloat(input.getAttribute('data-computed')) || 0;
+            if (bankaBakiye > 0) {
+                csvContent += `"${bankaName}";"₺${formatTL(bankaBakiye)}"\n`;
+                raporToplamNakit += bankaBakiye;
+            }
+        });
+
+        if (raporToplamNakit === 0) {
+            const dNakitBox = document.getElementById('d_nakit_box');
+            if (dNakitBox) {
+                let temizNakitText = dNakitBox.innerText.replace("₺", "").replace(/\./g, "").replace(",", ".").trim();
+                raporToplamNakit = parseFloat(temizNakitText) || 0;
+                csvContent += `"Toplam Konsolide Bakiye";"₺${formatTL(raporToplamNakit)}"\n`;
+            }
+        } else {
+            csvContent += `"KONSOLİDE TOPLAM NAKİT";"₺${formatTL(raporToplamNakit)}"\n`;
+        }
+        csvContent += `\n`; 
+
+        // 2. ADIM: DİĞER PORTFÖY TABLOLARINI SIRASIYLA TARAMA VE EKLEME MATRİSİ
+        const tablolar = [
+            { id: "hisseTable", baslik: "HİSSE SENETLERİ PORTFÖYÜ" },
+            { id: "halkaTable", baslik: "HALKA ARZ POTASI" },
+            { id: "satisTable", baslik: "SATIŞ GEÇMISI VE REALİZE KÂR RAPORU" }
+        ];
+
+        tablolar.forEach(tabloMeta => {
+            const tablo = document.getElementById(tabloMeta.id);
+            if (!tablo) return;
+
+            csvContent += `"=== ${tabloMeta.baslik} ===";\n`;
+
+            // Başlıkları Çek (thead)
+            const headers = [];
+            tablo.querySelectorAll("thead th").forEach(th => {
+                if (th.classList.contains("hzm-no-export")) return;
+                let thText = th.innerText.split("\n")[0]; 
+                headers.push(`"${thText.trim()}"`);
+            });
+            csvContent += headers.join(";") + "\n";
+
+            // Verileri Çek (tbody) - Sadece süzülmüş olanlar
+            tablo.querySelectorAll("tbody tr").forEach(row => {
+                if (row.style.display === "none") return; 
+
+                const cells = [];
+                row.querySelectorAll("td").forEach(td => {
+                    if (td.classList.contains("hzm-no-export")) return;
+                    let tdText = td.innerText.replace(/"/g, '""').trim();
+                    cells.push(`"${tdText}"`);
+                });
+                if(cells.length > 0) csvContent += cells.join(";") + "\n";
+            });
+
+            // Alt Toplamları Çek (tfoot)
+            tablo.querySelectorAll("tfoot tr").forEach(row => {
+                const footCells = [];
+                row.querySelectorAll("td").forEach(td => {
+                    if (td.classList.contains("hzm-no-export")) return;
+                    let footerText = td.innerText.replace(/"/g, '""').trim();
+                    footCells.push(`"${footerText}"`);
+                });
+                if(footCells.length > 0) csvContent += footCells.join(";") + "\n";
+            });
+            csvContent += `\n`; 
+        });
+
+        // Dosyayı sanal köprü üzerinden indirme tetikleyicisi
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        const tarihDamgasi = new Date().toISOString().slice(0,10);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `HZM_BTS_Portfoy_Raporu_${tarihDamgasi}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function closeSatisGecmisiSilModal() { document.getElementById('satisGecmisiSilModal').style.display = 'none'; }
+
+    function hesaplaMilestone() {
+        const hedefTutar = parseFloat("{{ hedef.tutar }}");
+        const mevcutGuc = parseFloat(document.getElementById('currentGucVal').getAttribute('data-val'));
+        if(hedefTutar > 0) {
+            let yuzde = (mevcutGuc / hedefTutar) * 100;
+            if(yuzde > 100) yuzde = 100;
+            document.getElementById('milestoneFill').style.width = yuzde.toFixed(1) + '%';
+            document.getElementById('milestoneTxt').innerText = yuzde.toFixed(1) + '%';
+        }
+    }
+
+    async function grafikleriCiz() {
+        try {
+            const res = await fetch('/api/dagilim_verileri');
+            const data = await res.json();
+            const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#888', font: { size: 10 } } } } };
+
+            new Chart(document.getElementById('bankaChart'), {
+                type: 'doughnut',
+                data: { labels: data.bankalar.labels, datasets: [{ data: data.bankalar.data, backgroundColor: ['#1e1e24','#2d2d35','#3c3c46','#4b4b57','#5a5a68'] }] },
+                options: chartOptions
+            });
+
+            new Chart(document.getElementById('turChart'), {
+                type: 'pie',
+                data: { labels: data.turler.labels, datasets: [{ data: data.turler.data, backgroundColor: ['#ff9800','#26a69a'] }] },
+                options: chartOptions
+            });
+        } catch (e) { console.log("Grafikler yüklenemedi:", e); }
+    }
+
+    async function onaylaSatisKaydiSil(sModu) {
+        const id = document.getElementById('silinecekSatisId').value;
+        const res = await fetch('/api/satis_gecmisi_sil', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, mod: sModu })
+        });
+        if (res.ok) window.location.reload();
+    }
+
+    async function kaydetHisse() {
+        const tur = document.getElementById('yatirimTuru').value;
+        const hisseKodu = document.getElementById('hisseKodu').value;
+        const bankaAdi = document.getElementById('bankaSecimi').value;
+        const lot = document.getElementById('lot').value;
+        const alimFiyati = document.getElementById('alimFiyati').value;
+        const notlar = document.getElementById('hisseNotu').value;
+        const hesaptanDus = document.getElementById('hesaptanDusCheck').checked;
+
+        if (!hisseKodu || !lot || !alimFiyati) { alert("Lütfen gerekli alanları doldurun."); return; }
+        
+        const res = await fetch('/api/hisse_ekle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tur, hisseKodu, bankaAdi, lot, alimFiyati, notlar, hesaptanDus })
+        });
+        
+        if(res.ok) {
+            window.location.reload();
+        } else {
+            const errData = await res.json();
+            alert(errData.message || "Ekleme sırasında hata oluştu.");
+        }
+    }
+
+    async function onaylaPozisyonDuzenle() {
+        const id = document.getElementById('editId').value;
+        const bankaAdi = document.getElementById('editBankaSecimi').value;
+        const lot = document.getElementById('editLotInput').value;
+        const alimFiyati = document.getElementById('editAlimFiyatiInput').value;
+        const guncelFiyat = document.getElementById('editGuncelFiyatInput').value;
+        const notlar = document.getElementById('editNotInput').value;
+        const tur = document.getElementById('editTur').value;
+
+        if(!lot || !alimFiyati || !guncelFiyat) { alert("Lot, Alış Fiyatı ve Güncel Fiyat boş bırakılamaz!"); return; }
+        const res = await fetch('/api/hisse_duzenle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, bankaAdi, lot, alimFiyati, guncelFiyat, notlar, tur })
+        });
+        if(res.ok) window.location.reload();
+    }
+
+    async function hisseSil(id) {
+        if (!confirm("Bu yatırımı portföyünüzden tamamen silmek istediğinize emin misiniz?")) return;
+        const nakitIadeOnay = confirm("Hisse eklenirken hesaptan düşülen maliyet tutarı (Lot x Alış Fiyatı) nakit bakiyenize GERİ EKLENSİN Mİ?\n\n[Tamam = Evet, Bakiyeye Ekle] \n[İptal = Hayır, Sadece Hisseyi Sil]");
+        
+        try {
+            const response = await fetch(`/api/hisse_sil/${id}`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nakitIadeEt: nakitIadeOnay }) 
+            });
+            
+            const resData = await response.json();
+            if (response.ok && resData.status === "success") {
+                window.location.reload();
+            } else {
+                alert("Silme işlemi başarısız: " + (resData.message || "İç Hata"));
+            }
+        } catch (error) {
+            alert("Sistem bağlantı hatası oluştu!");
+            console.error(error);
+        }
+    }
+
+    async function onaylahisseSatish() {
+        const id = document.getElementById('satishId').value;
+        const satilacakLot = document.getElementById('satishLotInput').value;
+        const satisFiyati = document.getElementById('satishFiyatInput').value;
+        const maxLot = parseFloat(document.getElementById('satishMaxLot').value);
+        const notlar = document.getElementById('satishNotInput').value;
+
+        if (!satilacakLot || parseFloat(satilacakLot) <= 0 || !satisFiyati) { alert("Lütfen lot ve fiyat alanlarını eksiksiz girin."); return; }
+        if (parseFloat(satilacakLot) > maxLot) { alert("Eldeki lottan fazla satılamaz!"); return; }
+        const res = await fetch('/api/hisse_sat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, satilacakLot, satisFiyati, notlar })
+        });
+        if(res.ok) window.location.reload();
+    }
+
+    window.onload = function() {
+        bankaSecenekleriniGuncelle();
+        hzmExcelSuezgecleriDoldur();
+        setupHzmRowShortcuts();
+        hesaplaMilestone();
+        grafikleriCiz();
+        if (typeof geceEmniyetiKontrol === "function") geceEmniyetiKontrol();
+    };
+</script>
+{% endblock %}

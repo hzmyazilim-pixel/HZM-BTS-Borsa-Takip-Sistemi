@@ -1,0 +1,1 @@
+& "C:\Users\halid musab\AppData\Local\Programs\Python\Python313\Scripts\pyinstaller.exe" --noconfirm --onedir --windowed --clean --name="HZM Borsa Takip" --icon="static/logo.ico" --add-data "templates;templates" --add-data "static;static" app.py
